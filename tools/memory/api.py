@@ -1,5 +1,5 @@
-﻿"""
-Memory tools â€” read/write the user's persistent UserMemory store.
+"""
+Memory tools — read/write the user's persistent UserMemory store.
 Requires user_id injection (no OAuth credentials needed).
 """
 import logging

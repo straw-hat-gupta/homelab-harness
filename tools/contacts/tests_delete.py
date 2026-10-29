@@ -2,7 +2,6 @@
 
 Uses TransactionTestCase so sync_to_async worker threads can see committed rows.
 """
-import asyncio
 
 from backend.testing import run_async
 import uuid

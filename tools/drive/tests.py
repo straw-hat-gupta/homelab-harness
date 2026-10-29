@@ -3,7 +3,6 @@ Tests for tools/drive/api.py.
 
 All tests mock the Google Drive API service so no real credentials are needed.
 """
-import asyncio
 
 from backend.testing import run_async
 from unittest.mock import MagicMock, patch

@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # Models
 # ---------------------------------------------------------------------------
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class EmailMessage(BaseModel):

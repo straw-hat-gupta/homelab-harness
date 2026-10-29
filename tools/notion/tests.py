@@ -5,7 +5,6 @@ All HTTP calls are mocked — no real Notion API is hit. The 7 tools receive
 token_data directly (injected by the orchestrator), so the "not connected"
 case is exercised by a 401 response mapping to PluginNotConnectedError.
 """
-import asyncio
 
 from backend.testing import run_async
 from unittest.mock import MagicMock, patch

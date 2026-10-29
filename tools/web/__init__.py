@@ -1,1 +1,1 @@
-﻿from . import api  # noqa: F401 — triggers register() calls
+from . import api  # noqa: F401 — triggers register() calls

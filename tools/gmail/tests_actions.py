@@ -2,7 +2,6 @@
 Tests for the Gmail action tools added in Batch 2:
 trash_email, mark_read, mark_unread, add_label, remove_label, create_draft.
 """
-import asyncio
 
 from backend.testing import run_async
 from unittest.mock import MagicMock, patch

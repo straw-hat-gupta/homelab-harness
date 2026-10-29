@@ -331,8 +331,6 @@ class GetCtxDbTests(TestCase):
     def test_reset_clears_active_from_and_all_rows(self):
         """After reset, new messages at low sequences are visible on next load."""
         from context.models import ProjectContext
-        from projects.models import Projects
-        from django.contrib.auth import get_user_model
 
         _, project, uid = self._make_user_and_project()
 

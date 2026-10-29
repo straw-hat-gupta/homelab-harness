@@ -2,7 +2,6 @@
 Tests for tools/google_contacts/api.py.
 All tests mock the Google People API service — no real credentials needed.
 """
-import asyncio
 
 from backend.testing import run_async
 import uuid

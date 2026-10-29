@@ -2,7 +2,6 @@ from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.db.models import Q
 from .models import Contact, ContactConnection
 from .serializers import ContactSerializer, ContactConnectionSerializer
 from .services import get_filtered_contacts

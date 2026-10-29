@@ -4,7 +4,7 @@ Credentials (token_data) are injected by the orchestrator via the google_contact
 """
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from django.conf import settings
 from google.oauth2.credentials import Credentials

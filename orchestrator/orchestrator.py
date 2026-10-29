@@ -212,7 +212,6 @@ async def execute(
             try:
                 creds = await load_credentials(user_id, tool_def.plugin_id, step.account_id)
             except Exception as e:
-                from django.db import models as _dj_models
                 from plugins.models import Credentials
                 if isinstance(e, Credentials.DoesNotExist):
                     raise PluginNotConnectedError(tool_def.plugin_id) from e
