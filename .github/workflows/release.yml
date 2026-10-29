@@ -59,7 +59,7 @@ jobs:
       # this step starts running automatically once the repo is made public.
       - name: Attest build provenance
         if: ${{ !github.event.repository.private }}
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-name: ghcr.io/${{ github.repository_owner }}/agentic-assistant
           subject-digest: ${{ steps.build.outputs.digest }}
