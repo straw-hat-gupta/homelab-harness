@@ -1,0 +1,14 @@
+agentic-assistant
+Copyright (c) 2024-2026 Smarth Gupta and contributors
+
+This project began as the Django backend of Aiva (github.com/Arceus-Aiva/Aiva,
+private), a team startup project that was never launched. The backend code was
+extracted from Aiva commit f4733e92da8c7451c83feb45f42128017b5faf2d with the
+permission of its contributors and is released here under the MIT License.
+
+Original Aiva backend contributors (from git history):
+  - Ivan Guo
+  - Smarth Gupta
+  - Tyler Buchanan
+
+See ORIGINS.md for how the project was developed and what changed after extraction.
