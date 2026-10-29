@@ -1,12 +1,14 @@
 """Tests for tools/memory/api.py."""
 import asyncio
+
+from backend.testing import run_async
 from unittest.mock import AsyncMock, patch
 
 from django.test import TestCase
 
 
 def _run(coro):
-    return asyncio.run(coro)
+    return run_async(coro)
 
 
 class MemorySaveTests(TestCase):

@@ -6,6 +6,8 @@ token_data directly (injected by the orchestrator), so the "not connected"
 case is exercised by a 401 response mapping to PluginNotConnectedError.
 """
 import asyncio
+
+from backend.testing import run_async
 from unittest.mock import MagicMock, patch
 
 from django.test import TestCase, override_settings
@@ -23,7 +25,7 @@ NOTION_SETTINGS = {
 
 
 def _run(coro):
-    return asyncio.run(coro)
+    return run_async(coro)
 
 
 def _resp(json_data=None, status=200, text=""):

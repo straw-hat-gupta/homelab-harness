@@ -1,4 +1,6 @@
 import asyncio
+
+from backend.testing import run_async
 import uuid
 import unittest
 from unittest.mock import AsyncMock, MagicMock
@@ -96,8 +98,10 @@ class IsRetryableTests(unittest.TestCase):
     def test_generic_exception_not_retryable(self):
         self.assertFalse(_is_retryable(ValueError("boom")))
 
-    def test_connection_error_not_retryable(self):
-        self.assertFalse(_is_retryable(requests.exceptions.ConnectionError()))
+    def test_connection_error_is_retryable(self):
+        # Current policy retries connection failures for every tool. Milestone 2
+        # narrows this for non-idempotent writes.
+        self.assertTrue(_is_retryable(requests.exceptions.ConnectionError()))
 
 
 class ExecuteTests(unittest.TestCase):
@@ -111,7 +115,7 @@ class ExecuteTests(unittest.TestCase):
     def test_single_step_returns_output(self):
         _register_mock("processing_llm", "Hello!")
         plan = _make_plan(("processing_llm", "result"))
-        self.assertEqual(asyncio.run(execute(plan, user_id="u1")), "Hello!")
+        self.assertEqual(run_async(execute(plan, user_id="u1")), "Hello!")
 
     def test_multi_step_resolves_variable_references(self):
         fetch_fn = _register_mock("data.fetch", {"items": ["a", "b"]})
@@ -129,7 +133,7 @@ class ExecuteTests(unittest.TestCase):
             final_output_var="final",
             summary="I will fetch and process.",
         )
-        result = asyncio.run(execute(plan, user_id="u1"))
+        result = run_async(execute(plan, user_id="u1"))
         self.assertEqual(result, "Processed!")
         call_kwargs = process_fn.call_args.kwargs
         self.assertEqual(call_kwargs["input"], {"items": ["a", "b"]})
@@ -137,7 +141,7 @@ class ExecuteTests(unittest.TestCase):
     def test_unknown_tool_raises_tool_execution_error(self):
         plan = _make_plan(("nonexistent.tool", "result"))
         with self.assertRaises(ToolExecutionError) as ctx:
-            asyncio.run(execute(plan, user_id="u1"))
+            run_async(execute(plan, user_id="u1"))
         self.assertEqual(ctx.exception.step_id, "step_1")
         self.assertEqual(ctx.exception.tool, "nonexistent.tool")
 
@@ -156,13 +160,13 @@ class ExecuteTests(unittest.TestCase):
             summary="I will fail.",
         )
         with self.assertRaises(ToolExecutionError) as ctx:
-            asyncio.run(execute(plan, user_id="u1"))
+            run_async(execute(plan, user_id="u1"))
         self.assertEqual(ctx.exception.step_id, "step_1")
 
     def test_non_string_result_serialized_to_json(self):
         _register_mock("processing_llm", {"key": "value"})
         plan = _make_plan(("processing_llm", "result"))
-        result = asyncio.run(execute(plan, user_id="u1"))
+        result = run_async(execute(plan, user_id="u1"))
         self.assertIn("key", result)
         self.assertIn("value", result)
 
@@ -181,7 +185,7 @@ class ExecuteTests(unittest.TestCase):
         register(ToolDef(name="step2.tool", description="", params_schema={}, fn=step2_fn))
 
         plan = _make_plan(("step1.tool", "r1"), ("step2.tool", "r2"))
-        asyncio.run(execute(plan, user_id="u1"))
+        run_async(execute(plan, user_id="u1"))
         self.assertEqual(call_order, ["step1", "step2"])
 
     # ------------------------------------------------------------------
@@ -199,7 +203,7 @@ class ExecuteTests(unittest.TestCase):
             final_output_var="final",
             summary="I will do an action.",
         )
-        asyncio.run(execute(plan, user_id="u1", dry_run=True))
+        run_async(execute(plan, user_id="u1", dry_run=True))
         confirm_fn.assert_not_awaited()
 
     def test_dry_run_appends_notice(self):
@@ -213,7 +217,7 @@ class ExecuteTests(unittest.TestCase):
             final_output_var="final",
             summary="I will do an action.",
         )
-        result = asyncio.run(execute(plan, user_id="u1", dry_run=True))
+        result = run_async(execute(plan, user_id="u1", dry_run=True))
         self.assertIn("Dry run", result)
         self.assertIn("action.do", result)
 
@@ -228,7 +232,7 @@ class ExecuteTests(unittest.TestCase):
             final_output_var="final",
             summary="I will fetch and summarize.",
         )
-        result = asyncio.run(execute(plan, user_id="u1", dry_run=True))
+        result = run_async(execute(plan, user_id="u1", dry_run=True))
         fetch_fn.assert_awaited_once()
         self.assertEqual(result, "Got data.")
 
@@ -243,7 +247,7 @@ class ExecuteTests(unittest.TestCase):
             final_output_var="final",
             summary="I will do an action.",
         )
-        asyncio.run(execute(plan, user_id="u1", dry_run=False))
+        run_async(execute(plan, user_id="u1", dry_run=False))
         confirm_fn.assert_awaited_once()
 
     # ------------------------------------------------------------------
@@ -258,7 +262,7 @@ class ExecuteTests(unittest.TestCase):
         async def on_step(step_id, tool, index, total):
             calls.append((step_id, tool, index, total))
 
-        asyncio.run(execute(plan, user_id="u1", on_step=on_step))
+        run_async(execute(plan, user_id="u1", on_step=on_step))
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0], ("step_1", "processing_llm", 0, 1))
 
@@ -271,7 +275,7 @@ class ExecuteTests(unittest.TestCase):
         async def on_step(step_id, tool, index, total):
             calls.append((index, total, tool))
 
-        asyncio.run(execute(plan, user_id="u1", on_step=on_step))
+        run_async(execute(plan, user_id="u1", on_step=on_step))
         self.assertEqual(calls, [(0, 2, "step1.tool"), (1, 2, "processing_llm")])
 
     def test_on_step_not_called_for_dry_run_skipped_steps(self):
@@ -290,14 +294,14 @@ class ExecuteTests(unittest.TestCase):
         async def on_step(step_id, tool, index, total):
             calls.append(tool)
 
-        asyncio.run(execute(plan, user_id="u1", dry_run=True, on_step=on_step))
+        run_async(execute(plan, user_id="u1", dry_run=True, on_step=on_step))
         self.assertNotIn("action.do", calls)
         self.assertIn("processing_llm", calls)
 
     def test_on_step_none_does_not_raise(self):
         _register_mock("processing_llm", "ok")
         plan = _make_plan(("processing_llm", "result"))
-        result = asyncio.run(execute(plan, user_id="u1", on_step=None))
+        result = run_async(execute(plan, user_id="u1", on_step=None))
         self.assertEqual(result, "ok")
 
 
@@ -316,7 +320,7 @@ class ExecuteCompletedStepsTests(unittest.TestCase):
         fn.side_effect = RuntimeError("boom")
         plan = _make_plan(("step1.tool", "r1"))
         with self.assertRaises(ToolExecutionError) as ctx:
-            asyncio.run(execute(plan, user_id="u1"))
+            run_async(execute(plan, user_id="u1"))
         self.assertEqual(ctx.exception.completed_steps, [])
 
     def test_completed_steps_has_prior_step_on_mid_failure(self):
@@ -325,7 +329,7 @@ class ExecuteCompletedStepsTests(unittest.TestCase):
         fail_fn.side_effect = RuntimeError("boom")
         plan = _make_plan(("step1.tool", "r1"), ("step2.tool", "r2"))
         with self.assertRaises(ToolExecutionError) as ctx:
-            asyncio.run(execute(plan, user_id="u1"))
+            run_async(execute(plan, user_id="u1"))
         self.assertEqual(len(ctx.exception.completed_steps), 1)
         step = ctx.exception.completed_steps[0]
         self.assertEqual(step["step_id"], "step_1")
@@ -338,7 +342,7 @@ class ExecuteCompletedStepsTests(unittest.TestCase):
         fail_fn.side_effect = RuntimeError("boom")
         plan = _make_plan(("action.do", "r1"), ("step2.tool", "r2"))
         with self.assertRaises(ToolExecutionError) as ctx:
-            asyncio.run(execute(plan, user_id="u1"))
+            run_async(execute(plan, user_id="u1"))
         step = ctx.exception.completed_steps[0]
         self.assertTrue(step["requires_confirmation"])
         self.assertEqual(step["tool"], "action.do")
@@ -349,7 +353,7 @@ class ExecuteCompletedStepsTests(unittest.TestCase):
         fail_fn.side_effect = RuntimeError("boom")
         plan = _make_plan(("step1.tool", "r1"), ("step2.tool", "r2"))
         with self.assertRaises(ToolExecutionError) as ctx:
-            asyncio.run(execute(plan, user_id="u1"))
+            run_async(execute(plan, user_id="u1"))
         for entry in ctx.exception.completed_steps:
             self.assertIn("step_id", entry)
             self.assertIn("tool", entry)
@@ -362,7 +366,7 @@ class ExecuteCompletedStepsTests(unittest.TestCase):
         fail_fn.side_effect = RuntimeError("boom")
         plan = _make_plan(("step1.tool", "r1"), ("step2.tool", "r2"), ("step3.tool", "r3"))
         with self.assertRaises(ToolExecutionError) as ctx:
-            asyncio.run(execute(plan, user_id="u1"))
+            run_async(execute(plan, user_id="u1"))
         self.assertEqual(len(ctx.exception.completed_steps), 2)
         self.assertEqual(ctx.exception.completed_steps[0]["step_id"], "step_1")
         self.assertEqual(ctx.exception.completed_steps[1]["step_id"], "step_2")
@@ -397,7 +401,7 @@ class AgentActionAuditTests(TransactionTestCase):
             final_output_var="final",
             summary="I will act.",
         )
-        asyncio.run(execute(plan, user_id=self.user.supabase_uid))
+        run_async(execute(plan, user_id=self.user.supabase_uid))
         self.assertEqual(
             AgentAction.objects.filter(user=self.user, tool="action.do", status="success").count(), 1
         )
@@ -408,7 +412,7 @@ class AgentActionAuditTests(TransactionTestCase):
         fail_fn.side_effect = RuntimeError("boom")
         plan = _make_plan(("action.do", "r1"))
         with self.assertRaises(ToolExecutionError):
-            asyncio.run(execute(plan, user_id=self.user.supabase_uid))
+            run_async(execute(plan, user_id=self.user.supabase_uid))
         self.assertEqual(
             AgentAction.objects.filter(user=self.user, tool="action.do", status="failed").count(), 1
         )
@@ -417,5 +421,5 @@ class AgentActionAuditTests(TransactionTestCase):
         from agent.models import AgentAction
         _register_mock("processing_llm", "done", requires_confirmation=False)
         plan = _make_plan(("processing_llm", "result"))
-        asyncio.run(execute(plan, user_id=self.user.supabase_uid))
+        run_async(execute(plan, user_id=self.user.supabase_uid))
         self.assertEqual(AgentAction.objects.filter(user=self.user).count(), 0)

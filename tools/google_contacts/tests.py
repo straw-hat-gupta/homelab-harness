@@ -3,6 +3,8 @@ Tests for tools/google_contacts/api.py.
 All tests mock the Google People API service — no real credentials needed.
 """
 import asyncio
+
+from backend.testing import run_async
 import uuid
 from unittest.mock import MagicMock, patch
 
@@ -35,7 +37,7 @@ _PERSON_NO_EMAIL = {
 
 
 def _run(coro):
-    return asyncio.run(coro)
+    return run_async(coro)
 
 
 @override_settings(**GOOGLE_SETTINGS)

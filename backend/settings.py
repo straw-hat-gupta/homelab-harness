@@ -147,8 +147,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom user model
 AUTH_USER_MODEL = 'authentication.User'
 
-# Add the custom test runner configuration
-TEST_RUNNER = 'backend.test_runner.CustomTestRunner'
 
 SUPABASE_URL = env("SUPABASE_URL").rstrip("/")
 SUPABASE_ANON_KEY = env("SUPABASE_ANON_KEY", default="")

@@ -18,7 +18,7 @@ from planner.planner import plan as make_plan, revise_plan, detect_intent
 from planner.schemas import Plan
 from orchestrator.orchestrator import execute
 from orchestrator.exceptions import PluginNotConnectedError, ToolExecutionError
-from orchestrator.credentials import get_connected_plugins, get_connected_accounts
+from orchestrator.credentials import get_connected_accounts
 from projects.models import Projects
 from tools.registry import get as get_tool, get_schemas_for_planner, UnknownToolError
 from asgiref.sync import async_to_sync, sync_to_async

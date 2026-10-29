@@ -4,6 +4,8 @@ Tests for tools/drive/api.py.
 All tests mock the Google Drive API service so no real credentials are needed.
 """
 import asyncio
+
+from backend.testing import run_async
 from unittest.mock import MagicMock, patch
 
 from django.test import TestCase, override_settings
@@ -20,7 +22,7 @@ GOOGLE_SETTINGS = {
 
 
 def _run(coro):
-    return asyncio.run(coro)
+    return run_async(coro)
 
 
 @override_settings(**GOOGLE_SETTINGS)
@@ -37,7 +39,8 @@ class BuildServiceTests(TestCase):
         self.assertEqual(creds.client_secret, "test-client-secret")
         self.assertEqual(
             list(creds.scopes),
-            ["https://www.googleapis.com/auth/drive.metadata.readonly"],
+            # drive.read_file downloads content, which metadata.readonly cannot do.
+            ["https://www.googleapis.com/auth/drive.readonly"],
         )
         self.assertEqual(http.timeout, 15)
         mock_build.assert_called_once_with(

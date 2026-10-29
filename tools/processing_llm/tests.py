@@ -1,12 +1,14 @@
 """Tests for call_processing_llm — verifies timeout and max_tokens are forwarded."""
 import asyncio
+
+from backend.testing import run_async
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from django.test import TestCase, override_settings
 
 
 def _run(coro):
-    return asyncio.run(coro)
+    return run_async(coro)
 
 
 class ProcessingLLMTimeoutTests(TestCase):

@@ -3,6 +3,7 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework import status
@@ -34,6 +35,8 @@ def _confirmation_plan():
 
 class AgentViewAuthTests(APITestCase):
     def setUp(self):
+        # Throttle counters live in the shared cache; isolate each test.
+        cache.clear()
         self.user = User.objects.create_user(
             email="agent_user@example.com",
             password="pass",
@@ -68,6 +71,8 @@ class AgentViewAuthTests(APITestCase):
 
 class AgentViewFreshPromptTests(APITestCase):
     def setUp(self):
+        # Throttle counters live in the shared cache; isolate each test.
+        cache.clear()
         self.user = User.objects.create_user(
             email="agent_fresh@example.com",
             password="pass",
@@ -143,6 +148,8 @@ class AgentViewFreshPromptTests(APITestCase):
 
 class AgentViewPendingPlanTests(APITestCase):
     def setUp(self):
+        # Throttle counters live in the shared cache; isolate each test.
+        cache.clear()
         self.user = User.objects.create_user(
             email="agent_pending@example.com",
             password="pass",
@@ -248,6 +255,8 @@ class AgentViewPendingPlanTests(APITestCase):
 
 class AgentViewDryRunTests(APITestCase):
     def setUp(self):
+        # Throttle counters live in the shared cache; isolate each test.
+        cache.clear()
         self.user = User.objects.create_user(
             email="agent_dryrun@example.com",
             password="pass",
@@ -412,6 +421,8 @@ class GetSchemasForPlannerFilterTests(TestCase):
     """Unit tests for get_schemas_for_planner with enabled_plugins filtering."""
 
     def setUp(self):
+        # Throttle counters live in the shared cache; isolate each test.
+        cache.clear()
         import tools  # noqa: register all tools
 
     def test_no_filter_returns_all_tools(self):
@@ -459,6 +470,8 @@ class AgentViewProjectScopingTests(APITestCase):
     """Verify that project_id is validated against an owned Projects row."""
 
     def setUp(self):
+        # Throttle counters live in the shared cache; isolate each test.
+        cache.clear()
         from projects.models import Projects
         self.user = User.objects.create_user(
             email="scoping@example.com",
@@ -529,8 +542,17 @@ def _collect_stream(streaming_content) -> bytes:
     if hasattr(streaming_content, "__anext__"):
         import asyncio
 
+        from asgiref.sync import sync_to_async
+        from django.db import connections
+
         async def _consume():
-            return b"".join([chunk async for chunk in streaming_content])
+            try:
+                return b"".join([chunk async for chunk in streaming_content])
+            finally:
+                # The view's DB calls ran on asgiref's thread-sensitive executor
+                # thread; close that thread's connection so test DB teardown
+                # is not blocked by a lingering session.
+                await sync_to_async(connections.close_all)()
 
         return asyncio.run(_consume())
     return b"".join(streaming_content)
@@ -555,6 +577,8 @@ def _parse_sse(content: bytes) -> list[dict]:
 
 class AgentStreamViewTests(TestCase):
     def setUp(self):
+        # Throttle counters live in the shared cache; isolate each test.
+        cache.clear()
         self.user = User.objects.create_user(
             email="stream@example.com",
             password="pass",
@@ -605,7 +629,7 @@ class AgentStreamViewTests(TestCase):
         mock_plan.return_value = _simple_plan()
 
         with patch("agent.views._auth_stream", new=AsyncMock(return_value=(self.user, None))):
-            with patch("agent.views.get_connected_plugins", new=AsyncMock(return_value=[])):
+            with patch("agent.views.get_connected_accounts", new=AsyncMock(return_value=[])):
                 response = self._post_stream({"prompt": "hello"})
                 content = _collect_stream(response.streaming_content)
 
@@ -640,7 +664,7 @@ class AgentStreamViewTests(TestCase):
 
         mock_exec = AsyncMock(side_effect=fake_execute)
         with patch("agent.views._auth_stream", new=AsyncMock(return_value=(self.user, None))):
-            with patch("agent.views.get_connected_plugins", new=AsyncMock(return_value=[])):
+            with patch("agent.views.get_connected_accounts", new=AsyncMock(return_value=[])):
                 with patch("agent.views.execute", mock_exec):
                     response = self._post_stream({"prompt": "hello"})
                     # Consume the stream while patches are still active — the generator
@@ -715,6 +739,8 @@ class FormatCompletedStepsTests(TestCase):
 
 class AgentViewErrorTests(APITestCase):
     def setUp(self):
+        # Throttle counters live in the shared cache; isolate each test.
+        cache.clear()
         self.user = User.objects.create_user(
             email="errors@example.com",
             password="pass",
@@ -775,6 +801,8 @@ class AgentViewErrorTests(APITestCase):
 
 class AgentViewCapabilitiesTests(APITestCase):
     def setUp(self):
+        # Throttle counters live in the shared cache; isolate each test.
+        cache.clear()
         import tools  # noqa: register all tools
         self.user = User.objects.create_user(
             email="caps@example.com",
@@ -820,6 +848,8 @@ class AgentViewCapabilitiesTests(APITestCase):
 
 class AgentActionsViewTests(APITestCase):
     def setUp(self):
+        # Throttle counters live in the shared cache; isolate each test.
+        cache.clear()
         self.user = User.objects.create_user(
             email="audit_view@example.com",
             password="pass",
@@ -955,6 +985,8 @@ class AgentViewModifyCapTests(APITestCase):
     """run_prompt clears the pending plan after AGENT_MAX_MODIFY_REVISIONS modify attempts."""
 
     def setUp(self):
+        # Throttle counters live in the shared cache; isolate each test.
+        cache.clear()
         self.user = User.objects.create_user(
             email="modifycap@example.com",
             password="pass",

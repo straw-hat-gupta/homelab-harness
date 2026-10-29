@@ -3,6 +3,8 @@
 Uses TransactionTestCase so sync_to_async worker threads can see committed rows.
 """
 import asyncio
+
+from backend.testing import run_async
 import uuid
 
 from django.contrib.auth import get_user_model
@@ -14,7 +16,7 @@ User = get_user_model()
 
 
 def _run(coro):
-    return asyncio.run(coro)
+    return run_async(coro)
 
 
 class ContactsDeleteTests(TransactionTestCase):

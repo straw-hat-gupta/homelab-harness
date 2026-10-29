@@ -1,4 +1,6 @@
 import asyncio
+
+from backend.testing import run_async
 import os
 from unittest.mock import MagicMock, patch
 
@@ -6,7 +8,7 @@ from django.test import TestCase
 
 
 def _run(coro):
-    return asyncio.run(coro)
+    return run_async(coro)
 
 
 class WeatherToolTimeoutTests(TestCase):
