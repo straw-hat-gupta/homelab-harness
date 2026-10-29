@@ -55,7 +55,7 @@ markdown-it-py==4.0.0
 markupsafe==3.0.3
 mdurl==0.1.2
 more-itertools==10.8.0
-multidict==6.7.0
+multidict==7.2.1
 openai==2.7.1
 openapi-pydantic==0.5.1
 packaging==25.0
