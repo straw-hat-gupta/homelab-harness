@@ -1,0 +1,8 @@
+target-version = "py313"
+extend-exclude = ["*/migrations/*"]
+
+[lint]
+# Start with errors that are always bugs (syntax errors, undefined names).
+# Widen to "F" and then "E", "I", "B" once the inherited unused imports are
+# cleaned up: `ruff check --select F --statistics .` lists them.
+select = ["E9", "F63", "F7", "F82"]

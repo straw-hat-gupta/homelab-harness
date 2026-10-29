@@ -25,7 +25,14 @@ cp .env.example .env   # placeholder values are fine for tests; set POSTGRES_* t
 python manage.py test
 ```
 
-CI runs the same suite on every push and pull request (see `.github/workflows/ci.yml`).
+## CI/CD
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| [`ci.yml`](.github/workflows/ci.yml) | Push to `main`, pull requests | Ruff (error-class rules), Django checks, migration drift check, the full test suite on Postgres 16, gitleaks scan of the whole history, and a Docker build that boots Django |
+| [`release.yml`](.github/workflows/release.yml) | Push to `main`, `vX.Y.Z` tags | Runs CI, then publishes `ghcr.io/straw-hat-gupta/agentic-assistant` with tags `edge` and `sha-…` from `main`, and `X.Y.Z`, `X.Y`, `latest` from tags. Includes SBOM and provenance. |
+
+To cut a release: `git tag v0.1.0 && git push origin v0.1.0`.
 
 ## Known limitations
 
