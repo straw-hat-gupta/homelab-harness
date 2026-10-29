@@ -1,0 +1,21 @@
+services:
+  backend:
+    volumes:
+      - .:/backend_app
+    command: ["uvicorn", "backend.asgi:application", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment:
+      - DEBUG=True
+
+  worker:
+    volumes:
+      - .:/backend_app
+    command: ["celery", "-A", "backend", "worker", "--loglevel=info"]
+    environment:
+      - DEBUG=True
+
+  beat:
+    volumes:
+      - .:/backend_app
+    command: ["celery", "-A", "backend", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
+    environment:
+      - DEBUG=True
