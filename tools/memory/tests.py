@@ -1,5 +1,4 @@
 """Tests for tools/memory/api.py."""
-import asyncio
 
 from backend.testing import run_async
 from unittest.mock import AsyncMock, patch

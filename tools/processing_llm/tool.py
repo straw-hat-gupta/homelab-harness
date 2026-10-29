@@ -1,4 +1,4 @@
-﻿"""
+"""
 LLM-as-a-tool: synthesizes, summarizes, or transforms data from prior plan steps
 into a natural-language string that can be used by subsequent steps or returned
 as the final answer.
@@ -105,7 +105,7 @@ register(ToolDef(
     display_name="LLM Processing",
     description=(
         "Call the LLM to synthesize, summarize, or transform data from prior steps into a "
-        "natural-language string. Can appear at any point in the plan â€” use it to compose "
+        "natural-language string. Can appear at any point in the plan — use it to compose "
         "content (e.g. an email body) before passing to the next step, or as the final step "
         "to produce a human-readable answer."
     ),

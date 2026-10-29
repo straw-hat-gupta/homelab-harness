@@ -1,11 +1,11 @@
-﻿"""
-Web search tool â€” backed by the Tavily Search API.
+"""
+Web search tool — backed by the Tavily Search API.
 No user credentials required; uses TAVILY_API_KEY from the environment.
 """
 import asyncio
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import requests
 

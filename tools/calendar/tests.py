@@ -3,7 +3,6 @@ Tests for tools/calendar/api.py.
 
 All tests mock the Google API service so no real credentials are needed.
 """
-import asyncio
 
 from backend.testing import run_async
 from unittest.mock import MagicMock, patch

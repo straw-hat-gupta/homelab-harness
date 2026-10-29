@@ -4,7 +4,6 @@ import logging
 from typing import Optional
 
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt

@@ -149,7 +149,6 @@ AUTH_USER_MODEL = 'authentication.User'
 
 
 SUPABASE_URL = env("SUPABASE_URL").rstrip("/")
-SUPABASE_ANON_KEY = env("SUPABASE_ANON_KEY", default="")
 SUPABASE_JWT_SECRET = env("SUPABASE_JWT_SECRET")
 SUPABASE_JWT_ISSUER = f"{SUPABASE_URL}/auth/v1"
 SUPABASE_JWT_AUDIENCE = env("SUPABASE_JWT_AUDIENCE", default="authenticated").strip() or "authenticated"
@@ -184,6 +183,16 @@ OPENAI_KEY = env("OPENAI_KEY")
 # LLM model selection (override via environment variables)
 PLANNER_MODEL = env("PLANNER_MODEL", default="gpt-4o-mini")
 PROCESSING_LLM_MODEL = env("PROCESSING_LLM_MODEL", default="gpt-4o-mini")
+
+# Agent and execution tuning. Defaults match the fallbacks in the code that reads them.
+PLANNER_TIMEOUT = env.float("PLANNER_TIMEOUT", default=60.0)
+PROCESSING_LLM_TIMEOUT = env.float("PROCESSING_LLM_TIMEOUT", default=60.0)
+PROCESSING_LLM_MAX_TOKENS = env.int("PROCESSING_LLM_MAX_TOKENS", default=1024)
+TOOL_STEP_TIMEOUT = env.float("TOOL_STEP_TIMEOUT", default=60.0)
+PLAN_CACHE_TTL = env.int("PLAN_CACHE_TTL", default=3600)  # seconds; 0 disables plan caching
+AGENT_THROTTLE_RATE = env("AGENT_THROTTLE_RATE", default="20/min")
+AGENT_MAX_MODIFY_REVISIONS = env.int("AGENT_MAX_MODIFY_REVISIONS", default=5)
+PLANNER_USAGE_RETENTION_DAYS = env.int("PLANNER_USAGE_RETENTION_DAYS", default=90)
 
 # Cache
 # Set REDIS_URL in production (e.g. redis://localhost:6379/0 or a managed Redis URL).

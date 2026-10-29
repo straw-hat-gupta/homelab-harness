@@ -1,5 +1,4 @@
 """Tests for tools/web/api.py."""
-import asyncio
 
 from backend.testing import run_async
 import os

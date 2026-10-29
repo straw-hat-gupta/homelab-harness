@@ -17,7 +17,7 @@ This repository was created on 2026-10-29 by extracting `v2/backend` from the Ai
 - OAuth connect/finalize flow with encrypted credential storage; Celery + Redis scheduled workflows.
 - 423 test methods, of which 256 ran under the original test runner.
 
-A pre-extraction audit (kept outside this repo) found gaps that this project is fixing. They are tracked in issues and milestones and include:
+A pre-extraction audit found gaps that this project is fixing; see the [roadmap](docs/roadmap.md). They include:
 - OAuth scopes that didn't cover every Gmail tool
 - retries that weren't idempotent
 - test discovery that skipped the planner, orchestrator, and tool tests
@@ -26,6 +26,4 @@ A pre-extraction audit (kept outside this repo) found gaps that this project is 
 
 ## What changed after extraction
 
-See [CHANGELOG.md](CHANGELOG.md). Work done in this repository is by Smarth Gupta unless noted.
-
-The original Aiva design and reference documents are preserved, unmodified, in [`docs/legacy-aiva/`](docs/legacy-aiva/). They describe the system *as it was* (Supabase auth, iOS deep links) and are not current documentation.
+See [CHANGELOG.md](CHANGELOG.md). Work done in this repository is by Smarth Gupta unless noted. The original Aiva design documents were not carried over; current documentation is in [`docs/`](docs/).

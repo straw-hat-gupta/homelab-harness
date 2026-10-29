@@ -1,4 +1,3 @@
-import asyncio
 
 from backend.testing import run_async
 import uuid
@@ -118,7 +117,7 @@ class ExecuteTests(unittest.TestCase):
         self.assertEqual(run_async(execute(plan, user_id="u1")), "Hello!")
 
     def test_multi_step_resolves_variable_references(self):
-        fetch_fn = _register_mock("data.fetch", {"items": ["a", "b"]})
+        _register_mock("data.fetch", {"items": ["a", "b"]})
         process_fn = _register_mock("processing_llm", "Processed!")
         plan = Plan(
             steps=[

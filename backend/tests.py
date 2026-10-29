@@ -47,3 +47,39 @@ class CelerySettingsTests(TestCase):
         import redis
 
         self.assertTrue(hasattr(redis, "Redis"))
+
+
+class TuningEnvSettingsTests(TestCase):
+    """Documented tuning variables must reach settings (they were once ignored)."""
+
+    OVERRIDES = {
+        "PLANNER_TIMEOUT": ("12.5", 12.5),
+        "PROCESSING_LLM_TIMEOUT": ("13", 13.0),
+        "PROCESSING_LLM_MAX_TOKENS": ("256", 256),
+        "TOOL_STEP_TIMEOUT": ("14", 14.0),
+        "PLAN_CACHE_TTL": ("0", 0),
+        "AGENT_THROTTLE_RATE": ("5/min", "5/min"),
+        "AGENT_MAX_MODIFY_REVISIONS": ("2", 2),
+        "PLANNER_USAGE_RETENTION_DAYS": ("30", 30),
+    }
+
+    def test_env_vars_override_settings(self):
+        import json
+        import os
+        import subprocess
+        import sys
+
+        from django.conf import settings
+
+        env = {**os.environ, **{k: raw for k, (raw, _) in self.OVERRIDES.items()}}
+        names = list(self.OVERRIDES)
+        script = (
+            "import json, backend.settings as s; "
+            f"print(json.dumps({{n: getattr(s, n) for n in {names!r}}}))"
+        )
+        out = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=settings.BASE_DIR, env=env, capture_output=True, text=True, check=True,
+        )
+        values = json.loads(out.stdout.strip().splitlines()[-1])
+        self.assertEqual(values, {k: expected for k, (_, expected) in self.OVERRIDES.items()})

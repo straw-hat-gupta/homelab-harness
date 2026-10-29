@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from .models import Task, SubTask
+from .models import Task
 from projects.models import Projects
 from .serializers import TaskSerializer, SubTaskSerializer
 from backend.pagination import AivaPagination

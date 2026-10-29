@@ -1,5 +1,5 @@
-﻿"""
-Contacts tools â€” backed by the existing Contact / ContactConnection DB models.
+"""
+Contacts tools — backed by the existing Contact / ContactConnection DB models.
 No external credentials needed; all data lives in the Aiva database.
 """
 import logging

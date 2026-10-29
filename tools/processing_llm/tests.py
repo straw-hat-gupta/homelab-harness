@@ -1,5 +1,4 @@
 """Tests for call_processing_llm — verifies timeout and max_tokens are forwarded."""
-import asyncio
 
 from backend.testing import run_async
 from unittest.mock import AsyncMock, MagicMock, patch

@@ -348,7 +348,6 @@ class PluginFilterHelperTests(TestCase):
 
     def test_validate_none_enabled_is_noop(self):
         """None enabled_plugins means no restriction — should never raise."""
-        import tools  # noqa: ensure tools app is loaded
         from agent.views import _validate_plan_plugins
         plan = Plan(
             steps=[PlanStep(id="s1", tool="gmail.send_email", params={}, output_var="r")],
@@ -359,7 +358,6 @@ class PluginFilterHelperTests(TestCase):
 
     def test_validate_raises_for_disabled_plugin(self):
         """A plan step using a disabled plugin should raise UnknownToolError."""
-        import tools  # noqa: ensure tools app is loaded
         from agent.views import _validate_plan_plugins
         from tools.registry import UnknownToolError
         plan = Plan(
@@ -423,7 +421,6 @@ class GetSchemasForPlannerFilterTests(TestCase):
     def setUp(self):
         # Throttle counters live in the shared cache; isolate each test.
         cache.clear()
-        import tools  # noqa: register all tools
 
     def test_no_filter_returns_all_tools(self):
         from tools.registry import get_schemas_for_planner
@@ -803,7 +800,6 @@ class AgentViewCapabilitiesTests(APITestCase):
     def setUp(self):
         # Throttle counters live in the shared cache; isolate each test.
         cache.clear()
-        import tools  # noqa: register all tools
         self.user = User.objects.create_user(
             email="caps@example.com",
             password="pass",
