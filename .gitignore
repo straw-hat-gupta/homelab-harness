@@ -1,7 +1,8 @@
-# Claude Code
+# Agent tooling (AGENTS.md, CLAUDE.md and .claude/settings.json are committed)
 .dual-graph/
-CLAUDE.md
-.claude/
+.claude/worktrees/
+.claude/settings.local.json
+CLAUDE.local.md
 
 # Python
 __pycache__/
@@ -53,6 +54,3 @@ Thumbs.db
 mcp_client/
 mcp_integration/
 mcp_server/
-
-# Claude Code worktrees
-.claude/worktrees/

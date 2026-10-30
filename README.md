@@ -38,6 +38,7 @@ python manage.py test
 | [Tool reference](docs/tools.md) | All 60 tools, generated from the registry |
 | [Development](docs/development.md) | Local setup, tests, lint, dependencies, CI/CD, releases |
 | [Roadmap](docs/roadmap.md) | Milestones and the behavior rules being implemented |
+| [AGENTS.md](AGENTS.md) | Contributor and AI-agent guide: layering, coding practices, testing, commit and PR conventions |
 
 ## Known limitations
 
