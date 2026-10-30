@@ -124,3 +124,17 @@ These protect a system that can read private email and act on it.
 3. `python manage.py makemigrations --check --dry-run` reports no changes.
 4. Docs, `.env.example`, `CHANGELOG.md`, and `docs/tools.md` are updated where relevant.
 5. Report results faithfully. If something failed or was skipped, say so with the output.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for `straw-hat-gupta/agentic-assistant` (gh CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `GLOSSARY.md` and `docs/adr/`, created lazily. See `docs/agents/domain.md`.
