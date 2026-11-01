@@ -1,0 +1,13 @@
+{
+  "data": {
+    "vmid": 200,
+    "name": "dns",
+    "status": "stopped",
+    "type": "lxc",
+    "lock": "backup",
+    "ha": {
+      "managed": 0
+    },
+    "uptime": 0
+  }
+}

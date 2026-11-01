@@ -1,0 +1,15 @@
+{
+  "data": [
+    {
+      "vmid": "200",
+      "name": "dns",
+      "status": "stopped",
+      "type": "lxc",
+      "cpus": 1,
+      "maxmem": 536870912,
+      "maxdisk": 8589934592,
+      "lock": "backup",
+      "tags": "infra"
+    }
+  ]
+}

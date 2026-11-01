@@ -1,0 +1,12 @@
+{
+  "data": {
+    "type": "zfspool",
+    "content": "images,rootdir",
+    "active": 1,
+    "enabled": 1,
+    "shared": 0,
+    "total": 1000204886016,
+    "used": 53687091200,
+    "avail": 946517794816
+  }
+}

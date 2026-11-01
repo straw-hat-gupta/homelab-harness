@@ -1,0 +1,26 @@
+{
+  "data": [
+    {
+      "volid": "pbs:backup/vm/101/2026-10-31T02:00:00Z",
+      "content": "backup",
+      "format": "pbs-vm",
+      "size": 4294967296,
+      "vmid": 101,
+      "ctime": 1730340000,
+      "notes": "web-01 nightly",
+      "protected": 0,
+      "verification": {
+        "state": "ok"
+      }
+    },
+    {
+      "volid": "pbs:backup/ct/200/2026-10-31T02:10:00Z",
+      "content": "backup",
+      "format": "pbs-ct",
+      "size": 268435456,
+      "vmid": 200,
+      "ctime": 1730340600,
+      "protected": 1
+    }
+  ]
+}
