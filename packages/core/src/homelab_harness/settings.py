@@ -11,7 +11,7 @@ from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, SecretStr
+from pydantic import Field, HttpUrl, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,6 +28,14 @@ class LogFormat(StrEnum):
 
     JSON = "json"
     CONSOLE = "console"
+
+
+class KekProviderKind(StrEnum):
+    """Where the vault's key-encryption keys come from (secrets.md)."""
+
+    FILE = "file"
+    SYSTEMD_CREDS = "systemd-creds"
+    ENV = "env"
 
 
 class Settings(BaseSettings):
@@ -52,6 +60,19 @@ class Settings(BaseSettings):
             of each credential's secret file. Interim: the vault replaces the
             secret files (docs/spec/secrets.md). When unset, no targets are
             registered and capability tools report that.
+        secrets_kek_provider: KEK source; the vault is disabled when unset.
+        secrets_kek_file: Key file for the ``file`` provider.
+        secrets_kek_credential: Credential name for the ``systemd-creds`` provider.
+        secrets_kek: Keyring for the ``env`` provider (dev and test only).
+        credentials_directory: ``$CREDENTIALS_DIRECTORY``, set by systemd (no prefix).
+        otel_exporter_otlp_endpoint: Base URL of an OTLP/HTTP receiver, usually
+            the collector (``http://otel-collector:4318``). Traces, metrics and
+            logs go to ``/v1/traces``, ``/v1/metrics`` and ``/v1/logs`` under it.
+            When unset or empty, telemetry is off: no providers, no exporters, no
+            instrumentation.
+        otel_export_timeout_seconds: Limit on one export request, so a slow
+            collector cannot stall the export threads.
+        otel_metric_export_interval_seconds: How often metrics are pushed.
     """
 
     model_config = SettingsConfigDict(
@@ -72,6 +93,23 @@ class Settings(BaseSettings):
     database_connect_timeout_seconds: int = Field(default=5, ge=1, le=60)
     database_statement_timeout_ms: int = Field(default=15_000, ge=100, le=600_000)
     targets_file: Path | None = None
+    secrets_kek_provider: KekProviderKind | None = None
+    secrets_kek_file: Path | None = None
+    secrets_kek_credential: str = "hh-kek"
+    secrets_kek: SecretStr | None = None
+    # systemd sets this unprefixed variable for LoadCredential=/LoadCredentialEncrypted=.
+    credentials_directory: Path | None = Field(
+        default=None, validation_alias="CREDENTIALS_DIRECTORY"
+    )
+    otel_exporter_otlp_endpoint: HttpUrl | None = None
+    otel_export_timeout_seconds: int = Field(default=5, ge=1, le=60)
+    otel_metric_export_interval_seconds: int = Field(default=15, ge=1, le=3600)
+
+    @field_validator("otel_exporter_otlp_endpoint", mode="before")
+    @classmethod
+    def _empty_endpoint_is_unset(cls, value: object) -> object:
+        # Compose passes an unset variable through as "", which must mean "off".
+        return None if value == "" else value
 
 
 @lru_cache(maxsize=1)

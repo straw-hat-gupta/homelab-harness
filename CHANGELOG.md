@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added (observability)
+- OpenTelemetry traces, metrics and logs over OTLP/HTTP, turned on by `HH_OTEL_EXPORTER_OTLP_ENDPOINT` (off when unset or empty), with `HH_OTEL_EXPORT_TIMEOUT_SECONDS` and `HH_OTEL_METRIC_EXPORT_INTERVAL_SECONDS`. Spans and metrics come from FastAPI requests, the app engine's queries and outgoing httpx calls.
+- Every span is redacted before export: span names, attributes, events, links and status pass the shared redactor (S9, R-16).
+- Log events logged inside a span carry `trace_id` and `span_id`. With telemetry on, the same redacted JSON events are also exported over OTLP.
+- `deploy/compose.yaml` gains an `observability` profile: OTel Collector, Prometheus, Tempo, Loki and Grafana, all pinned, with UIs on loopback only. Grafana needs `HH_GRAFANA_ADMIN_PASSWORD` (no default, anonymous access off). It provisions the datasources and a **Harness overview** dashboard: request rate, latency, 5xx share, readiness, pool, logs and recent traces.
+- The compose `harness` healthcheck now probes `/readyz` instead of `/healthz`.
+- The image sets `OTEL_SEMCONV_STABILITY_OPT_IN=http`, so it emits the stable HTTP metric names.
+
+### Added (vault crypto core)
+- `homelab_harness.secrets`: the vault's cryptographic core, with no persistence yet.
+  - Envelope encryption: a random 256-bit DEK per secret version, AES-256-GCM with random 96-bit nonces, and the DEK wrapped by the KEK. Both layers bind `secret_id`, version and kind (the wrapped DEK also binds the KEK id) as associated data. KEK rotation rewraps DEKs without touching ciphertext. Any tampering, or the wrong KEK, raises `SecretIntegrityError`; there is no plaintext fallback.
+  - KEK providers: a keyring file (refused unless it is mode 0400 and owned by the service user), systemd credentials, and an env variable for dev and test only (refused in prod). Selected with `HH_SECRETS_KEK_PROVIDER`. A configured provider that is missing or broken stops startup, and `/readyz` gains a `vault` check.
+  - Typed models for the kinds `ssh_key`, `password`, `api_token`, `proxmox_token`, `cloudflare_token`, `github_token`, `file` and `kv`, separating encrypted fields from plain metadata. Values are wrapped so they never show in `repr`, formatting or dumps, and are registered with the redactor as soon as they are decrypted. SSH keys derive their public key and `SHA256:` fingerprint.
+
 ### Added (Proxmox read adapter)
 - A new workspace package, `homelab-harness-proxmox` (`capabilities/proxmox`). It imports only the SDK. Everything below is **mocked; not yet verified live** against a PVE node.
 - `ProxmoxClient`: an async, read-only Proxmox VE API client with typed pydantic models. It covers version, cluster status and resources, nodes and node status, node RRD metrics, QEMU and LXC lists, configs and status, storage config, status and content, disks and SMART, node network (with staged changes), pools, tasks with status and log (UPID-routed), HA status, and backup jobs.
@@ -32,6 +46,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 - The GitHub repository is renamed to `straw-hat-gupta/homelab-harness`.
+- The container image is back on `python:3.13-slim`, the version CI tests. Dependabot now proposes only patch updates for the Python base image; minor and major upgrades move CI, the lock target and the image together in one deliberate PR.
 
 ### Removed
 - **BREAKING:** the v0 Django/DRF/Celery backend (all apps, dependencies, Docker image, Compose files, and the release workflow) is removed from `main` ahead of a rewrite. It is preserved at tag `v0-django-final`; its docs, the 2026-10-30 audit, and its 2026-10-31 cross-check moved to `docs/archive/v0/`.

@@ -33,7 +33,10 @@ async def test_ca_bundle_verifies_and_sends_the_token(
     pki, tls_server, token, canary_secret, caplog
 ):
     # Real wire, so httpx and httpcore debug logging runs too: the secret must not appear.
+    # Their levels are set explicitly: core's logging config holds them at WARNING.
     caplog.set_level(logging.DEBUG)
+    for name in ("httpx", "httpcore"):
+        caplog.set_level(logging.DEBUG, logger=name)
     server = await tls_server([pki.issue()])
     async with _client(server.port, token, CaBundle(path=pki.ca_pem)) as pve:
         version = await pve.version()

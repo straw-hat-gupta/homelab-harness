@@ -1,0 +1,62 @@
+# OpenTelemetry Collector: one OTLP entry point for the harness and, later, the
+# AI clients' own telemetry (Claude Code, Codex). It forwards metrics to
+# Prometheus, traces to Tempo and logs to Loki, all over OTLP.
+#
+# The three backend endpoints come from HH_OTELCOL_* variables; compose defaults
+# them to the bundled services. To use a stack the lab already runs, point them
+# at it (see docs/development.md, "Observability").
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Bound the collector's memory before batching, so a burst cannot OOM it.
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  batch: {}
+
+exporters:
+  otlp_http/prometheus:
+    # Prometheus's native OTLP receiver (--web.enable-otlp-receiver).
+    metrics_endpoint: ${env:HH_OTELCOL_PROMETHEUS_OTLP_URL}
+    tls:
+      insecure: true
+  otlp_grpc/tempo:
+    endpoint: ${env:HH_OTELCOL_TEMPO_OTLP_GRPC}
+    tls:
+      insecure: true
+  otlp_http/loki:
+    # Loki's native OTLP endpoint; resource attributes such as service.name
+    # become labels and the rest structured metadata.
+    logs_endpoint: ${env:HH_OTELCOL_LOKI_OTLP_URL}
+    tls:
+      insecure: true
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  telemetry:
+    logs:
+      level: warn
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_grpc/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/loki]

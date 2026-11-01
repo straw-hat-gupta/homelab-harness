@@ -1,0 +1,15 @@
+# Prometheus receives metrics pushed by the collector over OTLP
+# (--web.enable-otlp-receiver), so there are no scrape jobs yet.
+global:
+  evaluation_interval: 30s
+
+otlp:
+  # Keep these resource attributes as labels; service.name already becomes `job`.
+  promote_resource_attributes:
+    - service.version
+    - deployment.environment.name
+
+storage:
+  tsdb:
+    # OTLP pushes can arrive slightly out of order after a collector retry.
+    out_of_order_time_window: 30m

@@ -27,9 +27,11 @@ from homelab_harness.health import CheckStatus, ReadinessRegistry
 from homelab_harness.jobs.runtime import dbos_check, launch_dbos, shutdown_dbos
 from homelab_harness.mcp.server import MCP_PATH, McpService, build_mcp
 from homelab_harness.redaction import redactor
+from homelab_harness.secrets.keys import build_key_provider, vault_check
 from homelab_harness.settings import Environment, Settings, get_settings
 from homelab_harness.target_health import target_check
 from homelab_harness.targets import TargetRegistry, load_targets
+from homelab_harness.telemetry import Telemetry
 
 log = structlog.get_logger(__name__)
 
@@ -52,6 +54,9 @@ async def _database_lifespan(app: FastAPI) -> AsyncGenerator[None]:
         yield
         return
     engine = create_engine(settings)
+    telemetry: Telemetry | None = app.state.telemetry
+    if telemetry is not None:
+        telemetry.instrument_engine(engine)
     sessions = create_session_factory(engine)
     app.state.db_sessions = sessions
     app.state.audit = AuditWriter(sessions)
@@ -65,11 +70,14 @@ async def _database_lifespan(app: FastAPI) -> AsyncGenerator[None]:
         await engine.dispose()
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, telemetry: Telemetry | None = None) -> FastAPI:
     """Build the harness application.
 
     Args:
         settings: Settings to use; read from the environment when omitted.
+        telemetry: When given, every request is traced and measured, and the
+            app engine's queries are traced. ``None`` leaves the app
+            uninstrumented.
 
     Returns:
         A configured FastAPI app. ``app.state.readiness`` holds the readiness
@@ -77,10 +85,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         configured, startup also sets ``app.state.db_sessions`` (session
         factory) and ``app.state.audit`` (the audit writer). The MCP server is
         routed at ``/mcp``; it needs the database for client tokens and audit.
+        ``app.state.key_provider`` is the vault's KEK provider, or ``None``
+        when ``HH_SECRETS_KEK_PROVIDER`` is unset.
 
     Raises:
         InvalidInput: If ``database_url`` is set but is not a Postgres URL, or
             the targets file is invalid.
+        KeyProviderError: If a KEK provider is configured but unusable (R-25).
     """
     settings = settings or get_settings()
     if settings.database_url is not None:
@@ -97,6 +108,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.readiness = ReadinessRegistry()
+    # Load KEKs now so a missing or broken provider stops startup (R-25).
+    key_provider = build_key_provider(settings)
+    app.state.key_provider = key_provider
+    if key_provider is not None:
+        app.state.readiness.register("vault", vault_check(key_provider))
+    app.state.telemetry = telemetry
+    if telemetry is not None:
+        telemetry.instrument_app(app)
     _attach_mcp(app, settings)
 
     @app.get("/healthz", tags=["health"])
