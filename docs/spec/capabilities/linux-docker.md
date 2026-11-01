@@ -23,7 +23,7 @@ Both capabilities reach their targets over SSH, so they share one transport. `li
 | Privilege | `sudoers.d/harness` grants `NOPASSWD` for **exact command paths and argument patterns**, generated from the operation catalog below, for example `/usr/bin/systemctl restart *` scoped to allowlisted units. There is no `ALL` and no shell (`/bin/sh`, `bash -c`). Raw exec (`shell.plan_exec`) needs a separate sudo rule that the owner installs explicitly. Without it, raw exec runs unprivileged. |
 | Docker group | Membership in the `docker` group is root-equivalent. On Docker hosts, `harness` gets it only when the target is registered with `docker: true`, and the threat model records that as a root-equivalent grant. |
 | Host keys | Each host's key is pinned when the target is registered (trust on first use, confirmed by the owner in the CLI, which shows the fingerprint). Any mismatch afterwards is a hard failure that raises an event, with no auto-accept. |
-| Setup | `aa target add linux <name>` prints the exact user, sudoers and ACL snippets for the owner to apply. A `linux.target.check` read tool then verifies them: user exists, sudo rules match the catalog, no extra privileges. |
+| Setup | `hh target add linux <name>` prints the exact user, sudoers and ACL snippets for the owner to apply. A `linux.target.check` read tool then verifies them: user exists, sudo rules match the catalog, no extra privileges. |
 
 ## Adapter behavior
 
@@ -82,7 +82,7 @@ The proxmox capability doesn't build its own SSH commands. It calls `linux.zfs.p
 
 ### Model
 
-- A **stack** is `(docker_host, repo, path)`: a `compose.yaml` in a Git repo the harness can read, plus the host it runs on. Stacks are registered with `aa stack add`.
+- A **stack** is `(docker_host, repo, path)`: a `compose.yaml` in a Git repo the harness can read, plus the host it runs on. Stacks are registered with `hh stack add`.
 - **The Git file is the desired state.** The harness never edits compose files on the host. Changing a stack means changing Git (through a PR, as in [obsidian.md](obsidian.md)), then running a deploy plan.
 - **Checkout:** on deploy, the harness checks out the reviewed commit into `/srv/stacks/<name>` on the host. The commit SHA is part of the plan hash.
 

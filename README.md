@@ -1,4 +1,4 @@
-# agentic-assistant
+# homelab-harness
 
 [![CI](https://github.com/straw-hat-gupta/agentic-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/straw-hat-gupta/agentic-assistant/actions/workflows/ci.yml)
 

@@ -9,7 +9,8 @@ The spec is in [`docs/spec/`](spec/README.md), the decisions are in [`docs/adr/`
 - [x] Archive v0 at the `v0-django-final` tag, with its docs in `docs/archive/v0/`.
 - [x] Write the vision, architecture, safety model, threat model, clients, observability, reliability, extending, steering, testing and evals, UI vision, and capability specs (Proxmox, Linux and Docker, Cloudflare, Obsidian).
 - [x] Write ADRs 0001–0008 and the glossary.
-- [ ] The maintainer reviews the docs and resolves the [open decisions](#open-decisions) marked "before Stage 1".
+- [x] The maintainer reviews the docs and resolves the [open decisions](#open-decisions) marked "before Stage 1" (D-1 and D-2, 2026-11-01).
+- [ ] Specify secrets: storage, brokered use without exposing values, and owner intake (`docs/spec/secrets.md`, added in a follow-up PR).
 
 **Done when:** this PR is merged with its decisions resolved, and AGENTS.md has been rewritten for the new layout.
 
@@ -25,7 +26,7 @@ Daily value: "What's going on in my cluster?" from Claude Code, Codex or claude.
 - FastAPI app, settings, structlog with redaction, OTel.
 - `/healthz` and `/readyz`.
 - Postgres with Alembic, DBOS initialized.
-- The vault, with MultiFernet and `aa vault rotate`.
+- The vault, with MultiFernet and `hh vault rotate`.
 - Inventory sync workflows, and an audit writer for tool calls.
 
 **MCP**
@@ -33,7 +34,7 @@ Daily value: "What's going on in my cluster?" from Claude Code, Codex or claude.
 - Owner OAuth (ADR-0007), with Claude Code and Codex connected over the tailnet.
 
 **Proxmox, read-only**
-- `aa proxmox bootstrap` prints the exact `pveum` commands.
+- `hh proxmox bootstrap` prints the exact `pveum` commands.
 - The typed adapter pins TLS.
 - All T0 read tools and inventory resources.
 
@@ -44,7 +45,7 @@ Daily value: "What's going on in my cluster?" from Claude Code, Codex or claude.
 - Compose with harness, Postgres, the OTel Collector, Grafana, Prometheus, Tempo, Loki and ntfy, plus the overview dashboard.
 
 **Done when:**
-- A clean install followed by `aa doctor` is green (R-23).
+- A clean install followed by `hh doctor` is green (R-23).
 - "What's using disk on pveX?" is answered with `as_of` citations in Claude Code and Codex.
 - The trace is visible in Grafana.
 - The contract kit is green.
@@ -55,7 +56,7 @@ Daily value: "What's going on in my cluster?" from Claude Code, Codex or claude.
 Daily value: provision and operate guests safely from chat, with approvals on the phone.
 
 - Plan model, hashing, preview renderer, and policy engine (tiers, floors, `policy.toml`).
-- Approvals state machine, ntfy actions (ADR-0006), and the `aa approve`, `aa plans` and `aa jobs` commands.
+- Approvals state machine, ntfy actions (ADR-0006), and the `hh approve`, `hh plans` and `hh jobs` commands.
 - DBOS jobs: re-preflight, steps with retry classes, UPID polling, verification, outcomes including `uncertain`, and per-scope queues.
 - Proxmox T1/T2 operations:
   - power and snapshots;
@@ -115,8 +116,8 @@ Daily value: the "two new drives into a ZFS pool" flow, plus deploying Docker st
 
 ## Stage 6: Usage, automations, v1.0 (≈ 3–4 days)
 
-- Client usage ingest: the Claude Code statusline script, OTel from both CLIs, `aa usage`, and a Grafana usage dashboard.
-- The `aa agent` runner: scheduled health summaries and event triage through the owner's `claude -p` or `codex exec`.
+- Client usage ingest: the Claude Code statusline script, OTel from both CLIs, `hh usage`, and a Grafana usage dashboard.
+- The `hh agent` runner: scheduled health summaries and event triage through the owner's `claude -p` or `codex exec`.
 - Showcase work:
   - the README rewrite, with a diagram, a demo GIF and the reliability table with every Test cell filled;
   - an SBOM and provenance for the image;
@@ -135,8 +136,8 @@ Daily value: the "two new drives into a ZFS pool" flow, plus deploying Docker st
 
 | # | Decision | Proposal | Needed by |
 |---|---|---|---|
-| D-1 | Project and repo name. `agentic-assistant` no longer fits, and the CLI is called `aa` for now. | Pick a name before the first code PR, to avoid renaming packages later. | Before Stage 1 |
-| D-2 | Owner auth: an embedded authorization server or an existing IdP ([ADR-0007](adr/0007-owner-auth.md)) | Embedded, built on a maintained OAuth library | Stage 1 |
+| D-1 | ~~Project and repo name~~ | **Decided 2026-11-01:** homelab-harness (`homelab_harness` packages, `hh` CLI). The GitHub repo rename is pending. | — |
+| D-2 | ~~Owner auth~~ | **Decided 2026-11-01:** an embedded authorization server ([ADR-0007](adr/0007-owner-auth.md), accepted) | — |
 | D-3 | Proxmox node-admin token: minted per plan, or a short-lived token stored for a maintenance window ([proxmox.md §2.3](spec/capabilities/proxmox.md)) | Minted per plan by default; a window mode is available | Stage 3 |
 | D-4 | SSH: plain OpenSSH on the tailnet, or Tailscale SSH ([linux-docker.md](spec/capabilities/linux-docker.md)) | OpenSSH, with Tailscale ACLs as the network boundary | Stage 3 |
 | D-5 | Compose stacks: managed from a Git repo, or adopted from hosts | A Git repo, with a one-time adoption command | Stage 3 |

@@ -8,7 +8,7 @@
   Owner's AI clients (owner's subscriptions)                Owner
   ┌───────────────────────────────────────────┐   ┌──────────────────────┐
   │ claude.ai / Claude Desktop / mobile       │   │ phone: ntfy app      │
-  │ ChatGPT (developer-mode connector)        │   │ terminal: aa CLI     │
+  │ ChatGPT (developer-mode connector)        │   │ terminal: hh CLI     │
   │ Claude Code · Codex CLI (on workstation)  │   │ (later) web UI       │
   └───────────────┬───────────────────────────┘   └──────────┬───────────┘
                   │ MCP (streamable HTTP, OAuth 2.1)          │ approvals, jobs, inventory
@@ -49,6 +49,15 @@ Everything runs with Docker Compose on one host, typically an LXC or VM in the l
 
 ## Internal structure (code layout)
 
+Distribution and import names:
+
+| Package | Distribution | Import |
+|---|---|---|
+| Core | `homelab-harness` | `homelab_harness` |
+| SDK | `homelab-harness-sdk` | `homelab_harness_sdk` |
+| Capability `X` | `homelab-harness-X` | `homelab_harness_X` |
+| CLI | `hh` (a console script installed with the CLI package) | — |
+
 ```
 packages/
   core/                  # control plane; depends on nothing in capabilities/
@@ -75,7 +84,7 @@ capabilities/
     tests/               #   fixtures + contract kit + unit tests
     manifest.toml        #   name, version, required credentials, tool list
 steering/                # cross-cutting steering pack (operator persona, safety, runbooks)
-cli/                     # `aa` Typer CLI (thin client of the REST API)
+cli/                     # `hh` Typer CLI (thin client of the REST API)
 evals/                   # eval suites (fixture replay, golden transcripts, live nested-PVE)
 deploy/                  # compose files, otel config, grafana dashboards
 ```

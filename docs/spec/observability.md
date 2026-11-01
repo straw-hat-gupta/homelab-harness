@@ -16,7 +16,7 @@
 | Traces | OpenTelemetry SDK, OTLP to the Collector, then Tempo | Spans for every MCP request (`mcp.tool`), planner (`plan.create`), policy decision, approval wait (span link, not a long span), each job step, each adapter call (`proxmox.http`, `ssh.exec`, `cloudflare.http`, `github.http`), and verification |
 | Metrics | OTel metrics, then Prometheus | `harness_tool_calls_total{tool,client,outcome}`, `harness_plans_total{kind,tier,decision}`, `harness_approval_latency_seconds`, `harness_jobs_total{kind,outcome}`, `harness_job_duration_seconds`, `harness_adapter_requests_total{target,status_class}`, `harness_adapter_latency_seconds`, `harness_inventory_age_seconds{target}`, `harness_events_total{source,type}` |
 | Logs | structlog JSON to stdout, then Loki | One event per state transition, keyed by `plan_id`, `job_id`, `upid`, `client_id` and `trace_id`, with no payloads |
-| Audit | Postgres `audit_events` (append-only) | The legal record of what happened. Queryable with `aa audit` and a Grafana Postgres datasource. |
+| Audit | Postgres `audit_events` (append-only) | The legal record of what happened. Queryable with `hh audit` and a Grafana Postgres datasource. |
 
 **Semantic conventions.** Use OTel's HTTP, DB and RPC conventions where they apply. The GenAI conventions are still in development and the harness makes no model calls, so MCP spans use attributes in the `mcp.*` and `harness.*` namespaces, documented in `docs/telemetry-attributes.md` (to be written with the code).
 
@@ -53,7 +53,7 @@ all clients ──MCP calls──► harness audit (per client_id)
 ```
 
 - `usage_samples` stores the latest rate-limit snapshot per client and window, as used percentage plus `resets_at`. Token and cost counters stay in Prometheus.
-- `aa usage` shows a live table: client, 5-hour window percentage, reset time, weekly percentage, today's tokens and estimated cost, and today's harness tool calls. The UI widget comes after v1 ([ui-vision.md](ui-vision.md)).
+- `hh usage` shows a live table: client, 5-hour window percentage, reset time, weekly percentage, today's tokens and estimated cost, and today's harness tool calls. The UI widget comes after v1 ([ui-vision.md](ui-vision.md)).
 - Web clients (claude.ai, ChatGPT) show harness tool calls only, labelled "quota not reported by vendor".
 - Cost figures from Claude Code are list-price estimates. Label them that way; they are not bills.
 
@@ -61,4 +61,4 @@ all clients ──MCP calls──► harness audit (per client_id)
 
 - `/healthz`: the process is up.
 - `/readyz`: the DB is reachable, DBOS is initialized, the vault key is loaded, and each target's last sync is under 5 minutes old. A degraded target makes the probe report `degraded` rather than fail.
-- `aa doctor`: an end-to-end check covering token scopes against expected privileges, TLS pins, tunnel route allowlist, ntfy delivery, and OTel export.
+- `hh doctor`: an end-to-end check covering token scopes against expected privileges, TLS pins, tunnel route allowlist, ntfy delivery, and OTel export.

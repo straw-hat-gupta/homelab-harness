@@ -1,6 +1,6 @@
 # ADR-0007: Owner authentication and the MCP authorization server
 
-- **Status:** proposed. The maintainer decides before Stage 1 ends.
+- **Status:** accepted (2026-11-01): option A, the embedded single-owner authorization server.
 
 ## Context
 
@@ -13,6 +13,6 @@ Remote MCP clients (claude.ai, ChatGPT, Claude Code, Codex) authenticate using O
 | **A. Embedded single-owner AS** in the harness: passkey login, no registration, CIMD + DCR, short-lived tokens | No extra service. Demonstrates auth engineering. Behavior is fully under control. | Security-critical code to write and test. Use a vetted library (for example authlib) and keep scope minimal. |
 | **B. Existing lab IdP** (Authentik or Keycloak) | Mature. The lab may already run one. | Heavier. Support for CIMD and resource indicators varies by version (unverified). Another dependency for a fresh install. |
 
-## Recommendation
+## Decision
 
 **A**, built on a maintained OAuth library, with the token endpoint and login page as the only public auth surface. Interfaces stay pluggable, so B can be added later. The CLI uses a device-flow token from the same AS.

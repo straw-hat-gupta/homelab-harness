@@ -24,4 +24,4 @@ The maintainer's goals also changed:
 
 - There is no runnable code on `main` until Stage 1 lands. That is acceptable, because the maintainer is the only user.
 - v0 logic worth keeping (the OAuth state design, MultiFernet rotation, cron and time-zone handling) is ported by reading the tag. It is not resurrected.
-- The repository name `agentic-assistant` no longer fits the product. A rename is an open decision ([roadmap](../roadmap.md#open-decisions)).
+- The repository name `agentic-assistant` no longer fits the product. The project is named **homelab-harness**: "Homelab Harness" in prose, `homelab-harness` and `homelab_harness` for packages, and `hh` for the CLI. The decision was made on 2026-11-01 ([roadmap](../roadmap.md#open-decisions), D-1).

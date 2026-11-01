@@ -1,6 +1,6 @@
 # UI vision (post-v1)
 
-> **Status: specification of future work.** It is **not part of v1**. In v1 the owner uses the `aa` CLI and ntfy on a phone. This document records the target, so v1 APIs don't block it. [roadmap.md](../roadmap.md) says what gets built when.
+> **Status: specification of future work.** It is **not part of v1**. In v1 the owner uses the `hh` CLI and ntfy on a phone. This document records the target, so v1 APIs don't block it. [roadmap.md](../roadmap.md) says what gets built when.
 
 ## What the UI is for
 
