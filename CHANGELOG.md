@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Removed
 - **BREAKING:** the v0 Django/DRF/Celery backend (all apps, dependencies, Docker image, Compose files, and the release workflow) is removed from `main` ahead of a rewrite. It is preserved at tag `v0-django-final`; its docs, the 2026-10-30 audit, and its 2026-10-31 cross-check moved to `docs/archive/v0/`.
 
+### Added (rewrite specification)
+- `docs/spec/` defines the rewrite as an AI control plane for Proxmox home labs:
+  - vision, architecture, safety model, threat model, and client connections (bring your own subscription);
+  - observability, reliability requirements R-01 to R-33, testing and evals, extending, steering, and the post-v1 UI;
+  - capability specs for Proxmox, Linux and Docker, Cloudflare, and Obsidian.
+- ADRs 0001–0008, `GLOSSARY.md`, and a staged `docs/roadmap.md` with open decisions.
+
 ### Changed
 - CI checks documentation links and scans for secrets until code returns. Dependabot watches GitHub Actions only.
 
