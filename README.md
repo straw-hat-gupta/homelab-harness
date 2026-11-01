@@ -16,7 +16,7 @@
 | Start here | |
 |---|---|
 | [Vision](docs/spec/vision.md) | What it is, its principles and non-goals |
-| [Architecture](docs/spec/architecture.md) | Components, code layout, and the plan, approve, apply flow |
+| [Architecture](docs/spec/architecture.md) | **System diagram of what runs where**, then components, code layout, and the plan, approve, apply flow |
 | [Safety model](docs/spec/safety-model.md) | Invariants, risk tiers, previews, approvals |
 | [Full specification](docs/spec/README.md) | Every spec doc, in reading order |
 | [ADRs](docs/adr/) · [Glossary](GLOSSARY.md) · [Roadmap](docs/roadmap.md) | Decisions, vocabulary, stages |

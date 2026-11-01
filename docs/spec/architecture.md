@@ -2,6 +2,81 @@
 
 > **Status: specification.** It describes the target design. The decisions behind it are recorded in [ADRs](../adr/). Terms follow the [glossary](../../GLOSSARY.md).
 
+## System overview: what runs where
+
+```mermaid
+flowchart TB
+  subgraph owner["Owner devices · tailnet"]
+    direction LR
+    ws["💻 Workstation<br/>Claude Code · Codex<br/>hh CLI · hh ssh-agent"]
+    browser["🖥 Browser<br/>harness web UI"]
+    phone["📱 Phone<br/>ntfy · approve / reject"]
+  end
+
+  subgraph vendors["Vendor clouds"]
+    direction LR
+    claudeai["claude.ai / Claude Desktop"]
+    chatgpt["ChatGPT"]
+  end
+
+  edge["Cloudflare Access + Tunnel<br/>public /mcp + OAuth only"]
+
+  subgraph hhost["Harness host · LXC or VM · Compose"]
+    direction LR
+    cfd["cloudflared"]
+    harness["<b>harness</b><br/>MCP server · REST/SSE · web UI<br/>lab-state sync · recipes · catalog<br/>policy · approvals · DBOS jobs · vault"]
+    pg[("Postgres 17<br/>lab state · plans · jobs<br/>audit · vault ciphertext")]
+    ntfy["ntfy"]
+    obs["OTel Collector →<br/>Prometheus · Tempo · Loki · Grafana"]
+  end
+
+  subgraph lab["Your lab"]
+    direction LR
+    pve["Proxmox VE nodes<br/>API :8006 · Alloy agent"]
+    hosts["Linux / Docker hosts<br/>sshd · docker · Alloy agent"]
+  end
+
+  subgraph ext["External services"]
+    direction LR
+    cfapi["Cloudflare API<br/>DNS · Tunnels · Access"]
+    gh["GitHub<br/>Obsidian vault · lab-state mirror"]
+  end
+
+  ws -- "MCP" --> harness
+  browser -- "HTTPS" --> harness
+  phone <-- "approvals" --> ntfy
+  claudeai -- "MCP" --> edge
+  chatgpt -- "MCP" --> edge
+  edge --> cfd --> harness
+  harness <--> pg
+  harness --> ntfy
+  harness -- "OTLP" --> obs
+  harness -- "API tokens per tier" --> pve
+  harness -- "SSH argv templates · brokered keys" --> hosts
+  pve -. "journald · task logs · webhooks" .-> obs
+  hosts -. "journald · container logs" .-> obs
+  harness -- "scoped tokens" --> cfapi
+  harness -- "fine-grained PAT" --> gh
+```
+
+| Piece | Runs on | What it does |
+|---|---|---|
+| **harness** container | The harness host (an LXC or VM in the lab) | The control plane. It runs the MCP server for agents, REST and SSE for the UI and CLI, and serves the web UI. It holds the lab-state sync, the recipe runtime, the catalog, the policy engine, approvals, DBOS durable jobs, the audit writer and the secrets vault. It runs no AI model. |
+| **Postgres** | Harness host | The one database: lab state, plans, approvals, job state (DBOS), the append-only audit log, and vault ciphertext. The vault's master key lives outside it. |
+| **OTel Collector, Prometheus, Tempo, Loki, Grafana** | Harness host, or an observability stack the lab already runs | Traces, metrics and logs for the harness. Loki also stores the **lab logs** behind `logs.query`. |
+| **ntfy** | Harness host | Push notifications and approval buttons to the owner's phone |
+| **cloudflared** | Harness host | Publishes **only** the `/mcp` and OAuth endpoints, so claude.ai and ChatGPT can reach the harness. Everything else stays on the tailnet. |
+| **Proxmox VE nodes** | Your hardware | The target. The harness calls the API with privilege-separated tokens. An Alloy agent on each node ships journald logs to Loki. |
+| **Linux and Docker hosts** | Your VMs, LXCs or machines | Targets reached over SSH. The harness uses fixed argv templates and keys that stay in the vault. |
+| **Cloudflare API** | Cloudflare | DNS, tunnels and Access, managed with narrow tokens |
+| **GitHub** | GitHub | The Obsidian vault repo (tasks and notes), plus an optional repo mirroring the lab documents for change history |
+| **Workstation** | Owner's machine | Claude Code or Codex (signed in with the owner's own subscriptions), the `hh` CLI, and `hh ssh-agent` for brokered SSH |
+| **Browser** | Owner's machine | The web UI, which replaces the Proxmox web UI. Tailnet only, passkey login. |
+| **Phone** | Owner's phone | Receives ntfy notifications. The owner approves or rejects plans there. |
+| **claude.ai, ChatGPT** | Vendor clouds | Remote MCP clients that use the owner's subscriptions. They reach the harness only through the Access-protected tunnel. |
+
+Network rule: **everything is on the tailnet except the public MCP endpoint**, and that endpoint is protected by OAuth plus Cloudflare Access ([threat-model.md](threat-model.md)).
+
 ## Context
 
 ```
