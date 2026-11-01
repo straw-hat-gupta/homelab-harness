@@ -6,6 +6,7 @@ requires-python = ">=3.13"
 members = [
     "homelab-harness",
     "homelab-harness-cli",
+    "homelab-harness-proxmox",
     "homelab-harness-sdk",
     "homelab-harness-workspace",
 ]
@@ -606,6 +607,25 @@ requires-dist = [
 ]
 
 [[package]]
+name = "homelab-harness-proxmox"
+version = "0.1.0"
+source = { editable = "capabilities/proxmox" }
+dependencies = [
+    { name = "homelab-harness-sdk" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "structlog" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "homelab-harness-sdk", editable = "packages/sdk" },
+    { name = "httpx", specifier = ">=0.28" },
+    { name = "pydantic", specifier = ">=2.9" },
+    { name = "structlog", specifier = ">=24.4" },
+]
+
+[[package]]
 name = "homelab-harness-sdk"
 version = "0.1.0"
 source = { editable = "packages/sdk" }
@@ -623,8 +643,10 @@ source = { virtual = "." }
 
 [package.dev-dependencies]
 dev = [
+    { name = "cryptography" },
     { name = "homelab-harness" },
     { name = "homelab-harness-cli" },
+    { name = "homelab-harness-proxmox" },
     { name = "homelab-harness-sdk" },
     { name = "httpx" },
     { name = "pyright" },
@@ -640,8 +662,10 @@ dev = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "cryptography", specifier = ">=44" },
     { name = "homelab-harness", editable = "packages/core" },
     { name = "homelab-harness-cli", editable = "cli" },
+    { name = "homelab-harness-proxmox", editable = "capabilities/proxmox" },
     { name = "homelab-harness-sdk", editable = "packages/sdk" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "pyright", specifier = ">=1.1.390" },

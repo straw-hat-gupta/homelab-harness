@@ -1,0 +1,29 @@
+{
+  "data": {
+    "health": "PASSED",
+    "type": "ata",
+    "attributes": [
+      {
+        "id": "  5",
+        "name": "Reallocated_Sector_Ct",
+        "value": 100,
+        "worst": 100,
+        "threshold": 10,
+        "raw": "0",
+        "flags": "PO--CK",
+        "fail": "-",
+        "normalized": 100
+      },
+      {
+        "id": "177",
+        "name": "Wear_Leveling_Count",
+        "value": 99,
+        "worst": 99,
+        "threshold": 5,
+        "raw": "3",
+        "flags": "PO--C-",
+        "fail": "-"
+      }
+    ]
+  }
+}

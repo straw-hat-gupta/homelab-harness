@@ -1,0 +1,37 @@
+{
+  "data": [
+    {
+      "iface": "vmbr0",
+      "type": "bridge",
+      "active": 1,
+      "autostart": 1,
+      "method": "static",
+      "method6": "manual",
+      "address": "192.0.2.11",
+      "netmask": "24",
+      "cidr": "192.0.2.11/24",
+      "gateway": "192.0.2.1",
+      "bridge_ports": "enp1s0",
+      "bridge_stp": "off",
+      "bridge_fd": "0",
+      "families": [
+        "inet"
+      ],
+      "priority": 4,
+      "comments": "management\n"
+    },
+    {
+      "iface": "enp1s0",
+      "type": "eth",
+      "active": 1,
+      "autostart": 0,
+      "method": "manual",
+      "method6": "manual",
+      "families": [
+        "inet"
+      ],
+      "exists": 1,
+      "priority": 3
+    }
+  ]
+}

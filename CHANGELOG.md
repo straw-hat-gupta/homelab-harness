@@ -10,6 +10,14 @@ All notable changes to this project are documented here. The format follows [Kee
   - KEK providers: a keyring file (refused unless it is mode 0400 and owned by the service user), systemd credentials, and an env variable for dev and test only (refused in prod). Selected with `HH_SECRETS_KEK_PROVIDER`. A configured provider that is missing or broken stops startup, and `/readyz` gains a `vault` check.
   - Typed models for the kinds `ssh_key`, `password`, `api_token`, `proxmox_token`, `cloudflare_token`, `github_token`, `file` and `kv`, separating encrypted fields from plain metadata. Values are wrapped so they never show in `repr`, formatting or dumps, and are registered with the redactor as soon as they are decrypted. SSH keys derive their public key and `SHA256:` fingerprint.
 
+### Added (Proxmox read adapter)
+- A new workspace package, `homelab-harness-proxmox` (`capabilities/proxmox`). It imports only the SDK. Everything below is **mocked; not yet verified live** against a PVE node.
+- `ProxmoxClient`: an async, read-only Proxmox VE API client with typed pydantic models. It covers version, cluster status and resources, nodes and node status, node RRD metrics, QEMU and LXC lists, configs and status, storage config, status and content, disks and SMART, node network (with staged changes), pools, tasks with status and log (UPID-routed), HA status, and backup jobs.
+- TLS verification is mandatory: a CA bundle, a pinned SHA-256 certificate fingerprint, or the system store. There is no insecure mode. A pinned certificate becomes the connection's only trust anchor, so a swapped certificate is refused before the token is sent.
+- Proxmox failures map to the SDK error types (401, 403, 404/"does not exist", lock and conflict, 429 with `Retry-After`, 5xx/595, connect errors and timeouts). Messages never include response bodies, and the token secret never appears in `repr`, errors or logs.
+- A pure UPID parser, and `render_bootstrap_script()`, which renders the `pveum` script for the `harness@pve` user, its custom roles, ACLs, and privilege-separated `read`, `guest-ops` and `provision` tokens (golden-file tested).
+- A capability `manifest.toml` with the credential tiers.
+
 ### Added (database)
 - Postgres persistence for the core: an async SQLAlchemy engine (psycopg 3) with explicit pool limits and a statement timeout, configured by `HH_DATABASE_URL` and `HH_DATABASE_*`. The URL's password is registered with the redactor at startup.
 - Alembic migrations shipped inside the package, run with the new `homelab-harness-migrate` command (`upgrade`, `downgrade`, `current`, `check`, `revision`).

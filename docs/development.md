@@ -14,6 +14,7 @@ One uv workspace with one lockfile (`uv.lock`, committed):
 | `packages/core` | `homelab-harness` | `homelab_harness` |
 | `packages/sdk` | `homelab-harness-sdk` | `homelab_harness_sdk` |
 | `cli` | `homelab-harness-cli` (installs `hh`) | `homelab_harness_cli` |
+| `capabilities/proxmox` | `homelab-harness-proxmox` | `homelab_harness_proxmox` |
 
 ```bash
 uv sync                                     # create .venv with every package editable + dev tools

@@ -8,23 +8,27 @@ requires-python = ">=3.13"
 package = false
 
 [tool.uv.workspace]
-members = ["packages/*", "cli"]
+members = ["packages/*", "cli", "capabilities/*"]
 
 [tool.uv.sources]
 homelab-harness = { workspace = true }
 homelab-harness-sdk = { workspace = true }
 homelab-harness-cli = { workspace = true }
+homelab-harness-proxmox = { workspace = true }
 
 [dependency-groups]
 dev = [
     "homelab-harness",
     "homelab-harness-sdk",
     "homelab-harness-cli",
+    "homelab-harness-proxmox",
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "pytest-cov>=6",
     "httpx>=0.28",
     "respx>=0.22",
+    # Generates throwaway TLS certificates for the pinning tests; no keys are committed.
+    "cryptography>=44",
     "ruff>=0.8",
     "pyright>=1.1.390",
     "testcontainers[postgres]>=4.15",
@@ -47,10 +51,10 @@ ignore = [
 "scripts/**" = ["T20", "S603", "S607"]  # CLI scripts print and call git by design
 
 [tool.ruff.lint.isort]
-known-first-party = ["homelab_harness", "homelab_harness_sdk", "homelab_harness_cli"]
+known-first-party = ["homelab_harness", "homelab_harness_sdk", "homelab_harness_cli", "homelab_harness_proxmox"]
 
 [tool.pyright]
-include = ["packages", "cli"]
+include = ["packages", "cli", "capabilities"]
 exclude = ["**/tests/**", "**/.venv/**"]
 pythonVersion = "3.13"
 typeCheckingMode = "strict"
@@ -58,7 +62,7 @@ venvPath = "."
 venv = ".venv"
 
 [tool.pytest.ini_options]
-testpaths = ["packages", "cli"]
+testpaths = ["packages", "cli", "capabilities"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = ["--strict-markers", "--import-mode=importlib"]
@@ -66,4 +70,9 @@ filterwarnings = ["error"]
 
 [tool.coverage.run]
 branch = true
-source = ["homelab_harness", "homelab_harness_sdk", "homelab_harness_cli"]
+source = [
+    "homelab_harness",
+    "homelab_harness_sdk",
+    "homelab_harness_cli",
+    "homelab_harness_proxmox",
+]

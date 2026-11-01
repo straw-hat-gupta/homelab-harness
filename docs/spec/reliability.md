@@ -27,10 +27,10 @@ These requirements come from three sources:
 | R-14 | A transient target failure never permanently disables a credential. Only a definitive rejection (401 with invalid token, revoked) marks it unusable, and the owner is notified. | v0 #9 | |
 | R-15 | Credential use is serialized where the target requires it (ticket refresh). | v0 #9 | |
 | R-16 | No secrets or target content in logs, traces, errors or audit summaries (canary test per capability). | v0 #10, x-check 5, 6 | |
-| R-17 | Every tool declares the least-privilege credential tier it needs. Bootstrap verifies each token has exactly the expected privileges (none missing, none extra). | v0 #11 | |
-| R-18 | All inputs are validated at the boundary (pydantic). Bad input returns a 4xx or MCP error, never a 500. | v0 #12 | |
+| R-17 | Every tool declares the least-privilege credential tier it needs. Bootstrap verifies each token has exactly the expected privileges (none missing, none extra). | v0 #11 | Partial: `capabilities/proxmox/tests/test_bootstrap.py` (golden script; each token's ACL paths per tier; no node-admin token; manifest tiers match bootstrap). The `hh proxmox verify` exact-match check is not built yet. |
+| R-18 | All inputs are validated at the boundary (pydantic). Bad input returns a 4xx or MCP error, never a 500. | v0 #12 | Partial (Proxmox adapter): `capabilities/proxmox/tests/test_adapter.py::test_invalid_input_is_rejected_before_any_request`, `test_bootstrap.py::test_unsafe_names_are_refused`, `test_upid.py::test_malformed_upids_are_rejected_without_echo`. Routes and MCP are covered as they land. |
 | R-19 | List operations paginate correctly, with cursors scoped to their query and target. | v0 #13 | |
-| R-20 | Parsers are pure and fixture-tested with real-world shapes (Proxmox API responses, Tasks lines, compose files, journal output). | v0 #14 | |
+| R-20 | Parsers are pure and fixture-tested with real-world shapes (Proxmox API responses, Tasks lines, compose files, journal output). | v0 #14 | Partial (Proxmox): `capabilities/proxmox/tests/test_upid.py`, `test_adapter.py` against `tests/fixtures/pve-9.2/` (hand-written from the API docs; live recordings pending). |
 | R-21 | Times are aware UTC internally, converted at the edges with `zoneinfo`. Reminders are tested across DST in both directions. | v0 #15 | |
 | R-22 | A capability's business rules have one owner (its planner and executor). No duplicate implementations across entry points. | v0 #17 | |
 | R-23 | A clean install reaches a healthy stack (`docker compose up`, then `hh doctor` green) by following the docs alone. | v0 #18, x-check 9 | |

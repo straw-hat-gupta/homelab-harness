@@ -1,0 +1,22 @@
+{
+  "data": {
+    "vmid": 101,
+    "name": "web-01",
+    "status": "running",
+    "qmpstatus": "running",
+    "uptime": 86400,
+    "cpu": 0.03,
+    "cpus": 2,
+    "mem": 1073741824,
+    "maxmem": 2147483648,
+    "ha": {
+      "managed": 1,
+      "state": "started",
+      "group": null
+    },
+    "tags": "harness;web",
+    "running-qemu": "11.0.0",
+    "running-machine": "pc-q35-11.0+pve0",
+    "agent": 1
+  }
+}

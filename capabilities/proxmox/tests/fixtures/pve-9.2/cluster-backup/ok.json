@@ -1,0 +1,29 @@
+{
+  "data": [
+    {
+      "id": "backup-6b2f1c3a-0d4e",
+      "type": "vzdump",
+      "schedule": "02:00",
+      "enabled": 1,
+      "storage": "pbs",
+      "vmid": "101,200",
+      "mode": "snapshot",
+      "compress": "zstd",
+      "comment": "nightly",
+      "next-run": 1730512800,
+      "notes-template": "{{guestname}}",
+      "prune-backups": {
+        "keep-daily": "7"
+      }
+    },
+    {
+      "id": "backup-weekly-all",
+      "type": "vzdump",
+      "schedule": "sun 03:00",
+      "enabled": 0,
+      "storage": "pbs",
+      "all": 1,
+      "mode": "stop"
+    }
+  ]
+}

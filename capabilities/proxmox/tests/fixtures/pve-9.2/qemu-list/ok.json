@@ -1,0 +1,26 @@
+{
+  "data": [
+    {
+      "vmid": 101,
+      "name": "web-01",
+      "status": "running",
+      "cpus": 2,
+      "maxmem": 2147483648,
+      "maxdisk": 34359738368,
+      "uptime": 86400,
+      "pid": 4242,
+      "tags": "harness;web",
+      "qmpstatus": "running",
+      "cpu": 0.03,
+      "mem": 1073741824
+    },
+    {
+      "vmid": 9000,
+      "name": "debian-13-tpl",
+      "status": "stopped",
+      "template": 1,
+      "cpus": 1,
+      "maxmem": 1073741824
+    }
+  ]
+}

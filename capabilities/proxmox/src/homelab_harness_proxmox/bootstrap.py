@@ -1,0 +1,211 @@
+"""Render the ``pveum`` script that creates the harness's PVE user, roles and tokens (§2.4).
+
+The harness never runs this script: the owner reviews it and runs it as root on
+one cluster node. Every interpolated name is validated against PVE's own
+identifier formats first, because the output is executed by root.
+
+The output is deterministic for a given input (golden-file test). No node-admin
+token is created here; those are minted per approved plan (§2.3).
+
+Pure logic: no I/O, no framework imports.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from dataclasses import dataclass
+
+from homelab_harness_proxmox import identifiers
+from homelab_harness_sdk.errors import InvalidInput
+
+SERVICE_USER = "harness@pve"
+DEFAULT_POOL = "agent-managed"
+DEFAULT_TOKEN_DAYS = 180
+# Plain Linux bridges are exposed to permissions through this SDN zone.
+LOCAL_BRIDGE_ZONE = "localnetwork"
+
+READ_ROLE = "PVEAuditor"
+
+GUEST_OPS_PRIVILEGES: tuple[str, ...] = (
+    "VM.Audit",
+    "VM.PowerMgmt",
+    "VM.Snapshot",
+    "VM.Snapshot.Rollback",
+    "VM.Backup",
+    "VM.Console",
+    "Datastore.AllocateSpace",
+    "Datastore.Audit",
+)
+PROVISION_PRIVILEGES: tuple[str, ...] = (
+    "VM.Audit",
+    "VM.PowerMgmt",
+    "VM.Snapshot",
+    "VM.Snapshot.Rollback",
+    "VM.Backup",
+    "VM.Console",
+    "VM.Allocate",
+    "VM.Clone",
+    "VM.Config.CDROM",
+    "VM.Config.CPU",
+    "VM.Config.Cloudinit",
+    "VM.Config.Disk",
+    "VM.Config.HWType",
+    "VM.Config.Memory",
+    "VM.Config.Network",
+    "VM.Config.Options",
+    "VM.Migrate",
+    "Datastore.AllocateSpace",
+    "Datastore.AllocateTemplate",
+    "Datastore.Audit",
+    "SDN.Use",
+    "Pool.Audit",
+)
+TEMPLATE_USER_PRIVILEGES: tuple[str, ...] = ("VM.Audit", "VM.Clone")
+NODE_ADMIN_PRIVILEGES: tuple[str, ...] = (
+    "Sys.Audit",
+    "Sys.Modify",
+    "Sys.PowerMgmt",
+    "Sys.Syslog",
+    "Datastore.Allocate",
+    "Datastore.Audit",
+)
+
+ROLES: dict[str, tuple[str, ...]] = {
+    "HarnessGuestOps": GUEST_OPS_PRIVILEGES,
+    "HarnessProvision": PROVISION_PRIVILEGES,
+    "HarnessTemplateUser": TEMPLATE_USER_PRIVILEGES,
+    "HarnessNodeAdmin": NODE_ADMIN_PRIVILEGES,
+}
+
+# Tokens the script creates, by tier. node-admin is deliberately absent (§2.3).
+TOKEN_TIERS: tuple[str, ...] = ("read", "guest-ops", "provision")
+
+
+@dataclass(frozen=True, slots=True)
+class BootstrapRequest:
+    """Inputs to ``hh proxmox bootstrap``.
+
+    Attributes:
+        cluster: Harness label for the cluster (shown in the header only).
+        nodes: Node names; each gets a node-admin ACL for the service user.
+        pool: Pool that holds harness-managed guests.
+        guest_storages: Storages where guest disks are created.
+        backup_storages: Storages that receive backups.
+        templates: VMIDs of templates the provision token may clone.
+        bridges: Bridges guests may attach to.
+        token_days: Token lifetime in days.
+    """
+
+    cluster: str
+    nodes: Sequence[str]
+    pool: str = DEFAULT_POOL
+    guest_storages: Sequence[str] = ()
+    backup_storages: Sequence[str] = ()
+    templates: Sequence[int] = ()
+    bridges: Sequence[str] = ()
+    token_days: int = DEFAULT_TOKEN_DAYS
+
+
+def _validated(request: BootstrapRequest) -> BootstrapRequest:
+    if not request.nodes:
+        raise InvalidInput("bootstrap needs at least one node")
+    if not 1 <= request.token_days <= 3650:
+        raise InvalidInput("token lifetime must be between 1 and 3650 days")
+    return BootstrapRequest(
+        cluster=identifiers.cluster_name(request.cluster),
+        nodes=[identifiers.node_name(n) for n in request.nodes],
+        pool=identifiers.pool_id(request.pool),
+        guest_storages=[identifiers.storage_id(s) for s in request.guest_storages],
+        backup_storages=[identifiers.storage_id(s) for s in request.backup_storages],
+        templates=[identifiers.vmid(t) for t in request.templates],
+        bridges=[identifiers.bridge_name(b) for b in request.bridges],
+        token_days=request.token_days,
+    )
+
+
+def _user_acl(path: str, role: str, comment: str = "") -> str:
+    line = f"pveum acl modify {path.ljust(20)} --users {SERVICE_USER} --roles {role}"
+    return f"{line}   # {comment}" if comment else line
+
+
+def _token_acl(path: str, tier: str, role: str) -> str:
+    token = f"'{SERVICE_USER}!{tier}'"
+    return f"pveum acl modify {path.ljust(19)} --tokens {token.ljust(23)} --roles {role}"
+
+
+def render_bootstrap_script(request: BootstrapRequest) -> str:
+    """Render the reviewed shell script for the owner to run as root.
+
+    Args:
+        request: Cluster layout. All names are validated before use.
+
+    Returns:
+        The script text, ending with a newline.
+
+    Raises:
+        InvalidInput: If any name or number is outside PVE's accepted format.
+    """
+    r = _validated(request)
+    pool_path = f"/pool/{r.pool}"
+    zone_path = f"/sdn/zones/{LOCAL_BRIDGE_ZONE}"
+    bridges = ", ".join(r.bridges)
+
+    lines = [
+        f"# --- generated by hh proxmox bootstrap for cluster {r.cluster}; "
+        "review before running as root on one node ---",
+        "set -euo pipefail",
+        f'pveum user add {SERVICE_USER} --comment "AI harness service user '
+        '(no password, tokens only)"',
+        f'pveum pool add {r.pool} --comment "Guests created and managed by the harness"',
+        "",
+        "# Privilege names target PVE 9.2; renames or splits within 9.2.x are (unverified).",
+        "# pveum rejects an unknown privilege, so a mismatch fails here, before any ACL exists.",
+    ]
+    lines += [
+        f'pveum role add {name.ljust(17)} --privs "{" ".join(privs)}"'
+        for name, privs in ROLES.items()
+    ]
+    lines += [
+        "",
+        "# User ACLs = union (privsep tokens intersect with these)",
+        "# PVEAuditor is expected to exclude VM.Config.Cloudinit, so the read token cannot",
+        "# see cloud-init secrets (unverified for 9.2).",
+        _user_acl("/", READ_ROLE),
+        _user_acl(pool_path, "HarnessProvision"),
+    ]
+    lines += [_user_acl(f"/storage/{s}", "HarnessProvision") for s in r.guest_storages]
+    lines += [_user_acl(f"/storage/{s}", "HarnessGuestOps") for s in r.backup_storages]
+    if r.bridges:
+        lines.append(
+            _user_acl(zone_path, "HarnessProvision", f"bridge use (unverified path for {bridges})")
+        )
+    lines += [_user_acl(f"/vms/{t}", "HarnessTemplateUser") for t in r.templates]
+    lines += [_user_acl(f"/nodes/{n}", "HarnessNodeAdmin") for n in r.nodes]
+    lines += [
+        "",
+        "# Tokens (privilege-separated, expiring). Copy each secret into `hh proxmox token set`.",
+        f"EXP=$(date -d '+{r.token_days} days' +%s)",
+    ]
+    lines += [
+        f'pveum user token add {SERVICE_USER} {tier.ljust(9)} --privsep 1 --expire "$EXP"'
+        for tier in TOKEN_TIERS
+    ]
+    lines.append(_token_acl("/", "read", READ_ROLE))
+    lines.append(_token_acl(pool_path, "guest-ops", "HarnessGuestOps"))
+    lines += [
+        _token_acl(f"/storage/{s}", "guest-ops", "HarnessGuestOps") for s in r.backup_storages
+    ]
+    lines.append(_token_acl(pool_path, "provision", "HarnessProvision"))
+    lines += [
+        _token_acl(f"/storage/{s}", "provision", "HarnessProvision") for s in r.guest_storages
+    ]
+    if r.bridges:
+        lines.append(_token_acl(zone_path, "provision", "HarnessProvision"))
+    lines += [_token_acl(f"/vms/{t}", "provision", "HarnessTemplateUser") for t in r.templates]
+    lines += [
+        "# node-admin tokens are NOT created here; they are minted per approved plan (see §2.3).",
+        "",
+        "# TLS pin: paste this into `hh proxmox register --ca-file`",
+        "cat /etc/pve/pve-root-ca.pem",
+    ]
+    return "\n".join(lines) + "\n"

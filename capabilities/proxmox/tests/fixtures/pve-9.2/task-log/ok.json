@@ -1,0 +1,13 @@
+{
+  "data": [
+    {
+      "n": 1,
+      "t": "generating cloud-init ISO"
+    },
+    {
+      "n": 2,
+      "t": "TASK OK"
+    }
+  ],
+  "total": 2
+}

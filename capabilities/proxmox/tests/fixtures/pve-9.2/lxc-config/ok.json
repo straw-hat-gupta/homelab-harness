@@ -1,0 +1,11 @@
+{
+  "data": {
+    "hostname": "dns",
+    "cores": 1,
+    "memory": 512,
+    "rootfs": "local-zfs:subvol-200-disk-0,size=8G",
+    "unprivileged": 1,
+    "lock": "backup",
+    "digest": "9a8b7c6d5e4f30211203f4e5d6c7b8a9f0e1d2c3"
+  }
+}

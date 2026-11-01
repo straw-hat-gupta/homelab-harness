@@ -1,0 +1,29 @@
+{
+  "data": [
+    {
+      "storage": "local",
+      "type": "dir",
+      "path": "/var/lib/vz",
+      "content": "iso,vztmpl,backup",
+      "digest": "0f1e2d3c4b5a69788796a5b4c3d2e1f0a1b2c3d4"
+    },
+    {
+      "storage": "local-zfs",
+      "type": "zfspool",
+      "pool": "rpool/data",
+      "content": "images,rootdir",
+      "sparse": 1,
+      "digest": "0f1e2d3c4b5a69788796a5b4c3d2e1f0a1b2c3d4"
+    },
+    {
+      "storage": "pbs",
+      "type": "pbs",
+      "server": "192.0.2.50",
+      "datastore": "lab",
+      "content": "backup",
+      "shared": 1,
+      "nodes": "pve1,pve2",
+      "digest": "0f1e2d3c4b5a69788796a5b4c3d2e1f0a1b2c3d4"
+    }
+  ]
+}

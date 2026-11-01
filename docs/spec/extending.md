@@ -28,6 +28,8 @@ capabilities/<name>/
 evals/<name>/          # golden transcripts + injection cases for this domain
 ```
 
+Packages use the src layout like the rest of the workspace: the modules above live in `capabilities/<name>/src/homelab_harness_<name>/`, next to `tests/` and `pyproject.toml`. `manifest.toml` ships **inside** the package, so core can read it with `importlib.resources` wherever the capability is installed. `capabilities/proxmox` is the first one.
+
 ## The SDK surface (planned, illustrative)
 
 ```python
