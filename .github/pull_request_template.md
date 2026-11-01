@@ -6,7 +6,9 @@
 
 ## Test plan
 <!-- Exactly what was run and the result. Check only what you actually ran. -->
-- [ ] CI checks run locally where possible: <command and result>
+- [ ] `uv run pytest`: N passed
+- [ ] `uv run ruff check . && uv run ruff format --check .` clean
+- [ ] `uv run pyright`: 0 errors
 - [ ] New or changed behavior covered by tests (success and important failures)
 
 ## Notes

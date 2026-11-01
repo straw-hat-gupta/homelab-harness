@@ -1,0 +1,27 @@
+# Single-host deployment. Stage 1 services land here incrementally:
+# Postgres (database PR), otel-collector + Grafana stack (observability PR), ntfy.
+#
+#   docker compose -f deploy/compose.yaml up -d --build
+#   hh health --url http://127.0.0.1:8080
+name: homelab-harness
+
+services:
+  harness:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: ghcr.io/straw-hat-gupta/homelab-harness:edge
+    restart: unless-stopped
+    environment:
+      HH_ENV: ${HH_ENV:-prod}
+      HH_LOG_LEVEL: ${HH_LOG_LEVEL:-INFO}
+    # Bind to loopback by default; expose on the tailnet with `tailscale serve`.
+    ports:
+      - "127.0.0.1:8080:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
