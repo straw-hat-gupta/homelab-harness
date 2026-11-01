@@ -103,9 +103,28 @@ Core turns these into MCP tools with JSON Schemas, assigns tiers through policy,
 | Preview | A plan has no rollback note, no preview diff, or no observed facts for the re-preflight |
 | Steering | A tool has no mention in at least one skill or runbook (keeps steering in sync) |
 
+## Extension types: pick the smallest one that fits
+
+Most extensions are **not** new capabilities. Search the catalog first ([catalog.md](catalog.md)), then pick the smallest kind of extension that does the job:
+
+| You want… | Add | Code? | Spec |
+|---|---|---|---|
+| A new view of existing data | A **widget config** (template + data source + params) | No | [catalog.md](catalog.md) |
+| Data that isn't exposed yet | One **data source** (usually a query over the lab state) | A little | [catalog.md](catalog.md) |
+| A new visual shape | A **widget template** | Yes, UI only | [catalog.md](catalog.md) |
+| A repeatable operation built from existing steps | A **script recipe** (YAML argv), or a composite recipe | Little or none | [recipes.md](recipes.md) |
+| An operation needing new logic | A **recipe**, reusing existing steps | Yes | [recipes.md](recipes.md) |
+| A new tab, page or action in the UI | A **UI extension**. Recipe-backed actions are generated automatically. | Little | [ui.md](ui.md#extension-points) |
+| A new fact agents should know | A lab-state field plus a renderer section, or an **annotation** | A little | [lab-state.md](lab-state.md) |
+| A new system (PBS, TrueNAS, UniFi) | A **capability** package | Yes | below |
+
+Every kind of extension has its own contract test, and all of them are indexed in the catalog. Anything new must be reusable: typed inputs, no hard-coded lab names (use the [lab profile](onboarding.md#lab-profile)), documented, and tested.
+
 ## The coding-agent workflow
 
-The repo ships a skill, `steering/dev/new-capability/SKILL.md`, which is exposed to Claude Code and Codex. It walks the agent through these steps:
+The repo ships skills that are exposed to Claude Code and Codex:
+- `steering/dev/extend-harness/SKILL.md`: search the catalog, then pick the smallest extension type, reuse existing parts, add tests and update the catalog.
+- `steering/dev/new-capability/SKILL.md`: for genuinely new systems. It walks the agent through these steps:
 1. Copy `capabilities/_template`, rename it, and fill in `manifest.toml`.
 2. Write the adapter against the target's API docs, then record and scrub fixtures.
 3. Add read tools first, run the contract kit, and open a PR (useful on its own).

@@ -11,7 +11,18 @@ The project's vocabulary. Use these terms, in this sense, in code, docs, issues 
 | **Capability** | A package that adds a domain to the harness, such as `proxmox`, `cloudflare`, `docker`, `linux` or `obsidian`. It contributes a typed adapter, read tools, planners, executors, resources, steering and contract tests. | "plugin", "integration" |
 | **Adapter** | The part of a capability that talks to an external system: typed calls, timeouts, and error mapping to shared exceptions. It holds no policy. | "client wrapper" |
 | **Target** | A system the harness manages: a Proxmox cluster or node, a Linux host, a Docker host, a Cloudflare account, a vault repo. | "remote", "host" (unless it is a Linux host) |
-| **Inventory** | The control plane's cached, typed view of the targets, refreshed from the source of truth. It is read-optimized. The target is always authoritative at apply time. | "state" |
+| **Lab state** | The typed model of the whole lab, kept by deterministic sync code. Every row carries `as_of` and `source`. Agents and the UI read it instead of doing discovery. The live target is still authoritative at plan and apply time. See [lab-state.md](docs/spec/lab-state.md). | "inventory" (older term), "cache" |
+| **Lab document** | A deterministic, token-budgeted rendering of the lab state (`lab://overview`, `lab://nodes/pve1`, …) | "report", "summary" |
+| **Lab profile** | The owner's conventions (default storage, bridge, VMID range, templates, annotations), inferred during onboarding and used for recipe defaults | "config" |
+| **Adoption** | Connecting the harness to an existing lab read-only, without changing the lab's own configuration (`hh init`) | "install", "migration" |
+| **Recipe** | A named, versioned, tested, typed operation that produces a plan. Recipes are the plan tools. See [recipes.md](docs/spec/recipes.md). | "script" (unless it is a script recipe), "playbook" |
+| **Script recipe** | A recipe defined in YAML as argv templates with typed placeholders, preflight and verify steps | "shell script" |
+| **Step** | A low-level executor unit shared by recipes, with a retry class | "task" |
+| **Data source** | A typed, scoped, read-only query exposed to the UI, MCP and the CLI. See [catalog.md](docs/spec/catalog.md). | "endpoint", "API" |
+| **Widget template** | A generic UI component that renders a data *shape* (`stat`, `table`, `status-list`, …) | "widget" |
+| **Widget** | A config combining a template, a data source, parameters and options. It is not code. | "component" |
+| **Catalog** | The searchable index of data sources, recipes, steps, templates, docs and UI extensions. Check it before creating anything. | "registry" (that word is for the UI's code-level registries) |
+| **Failure class** | The deterministic attribution of a failed job: `agent.*`, `recipe.bug`, `target.error` or `uncertain` | "blame" |
 | **Read tool** | An MCP tool with no side effects. It runs immediately. | — |
 | **Plan** | An immutable, typed proposal for one change. It contains the intent, the target, preflight results, a preview (diff), a risk tier, the steps, a rollback note and a content hash. Created by a `*.plan_*` tool. | "action", "proposal" |
 | **Preview** | The human-readable part of a plan: what changes, before and after, and the exact commands or API calls. | "summary" |

@@ -1,73 +1,83 @@
 # Vision
 
-> **Status: specification.** This describes what will be built. Nothing here is implemented yet. [roadmap.md](../roadmap.md) says what gets built when.
+> **Status: specification.** This describes what will be built. [roadmap.md](../roadmap.md) says what gets built when, and which parts already exist.
 
 ## One line
 
-**An AI control plane for Proxmox home labs.** You bring the AI you already pay for, Claude or ChatGPT. The harness supplies everything that makes that AI a safe, expert infrastructure operator: typed tools, live inventory, plans with previews, approval on your phone, durable execution, an audit trail, and expert steering.
+**An AI-native control plane and UI for Proxmox home labs.** It replaces the Proxmox web UI. It keeps a deterministic, always-current picture of the lab and a library of tested operations. Any agent (Claude, ChatGPT, Codex) can do real work in the lab **with a fraction of the tokens, and no guessing**.
 
 ## The problem
 
-AI assistants can already *talk* about infrastructure. Letting one *operate* infrastructure is a different matter. The existing Proxmox MCP servers show the gap: most expose the raw API, often as `root@pam` with TLS verification off. The best of them let the model approve its own actions by filling in a token argument.
-
-A real operator needs more than that:
-- What will this change, exactly? Show the diff before anything happens.
-- Can it be undone? If not, ask me in a way the model cannot fake.
-- What happened? Every action needs a durable record from request to result, including Proxmox's own task log.
-- If the process dies halfway, the job should resume or report honestly, not run twice.
-- The AI should know *my* lab and follow good practice: least privilege, backups before risky changes, no public hostname without access control.
+You can already install Claude Code or Codex on every node and let it configure things. It works, but it is wasteful and fragile:
+- **Discovery every time.** Every session re-learns the lab from scratch: `pvesh get` here, `zpool status` there, `ip a`, `journalctl`. That costs tokens and time, and the agent's picture of the lab is different every run.
+- **Improvised commands.** The same operation (create a VM from a template, add disks to a pool, expose a service) gets re-invented each time, with different flags and different mistakes.
+- **No memory, no audit.** When something breaks, you can't tell whether the agent asked for the wrong thing, the commands were wrong, or the target failed.
+- **No guardrails.** A root shell, plus whatever the model decides.
+- **Two separate worlds.** The Proxmox web UI for humans, a terminal for agents, and nothing connecting them.
 
 ## What it is
 
-The harness has four parts:
+1. **Lab state, maintained by code, not by the model.**
+   - Sync jobs read Proxmox, Linux hosts, Docker and Cloudflare. They write one typed model of the lab: nodes, guests, storage, ZFS, disks, networks, firewall, backups, services, tunnels and DNS.
+   - From that model, deterministic code renders compact **lab documents** (`lab://overview`, `lab://nodes/pve1`, `lab://storage`, …).
+   - An agent reads one short page instead of running twenty discovery commands.
+   - An optional Git mirror keeps the history of every change to the lab.
+   - See [lab-state.md](lab-state.md).
+2. **Central lab logs.** Node journals, Proxmox task logs and container logs are collected in one place. Agents query them by budget (node, unit, time window, match) instead of SSHing around. See [lab-state.md](lab-state.md#lab-logs).
+3. **A recipe library.** Common operations are tested, versioned, parameterized **recipes**: provision a VM, add disks to ZFS, expose a service, deploy a stack, rotate a certificate.
+   - Agents pick a recipe and fill in typed parameters.
+   - They don't write commands, and recipes are built to be reused and composed by agents.
+   - Every run goes through plan, preview, approval, durable job and verification.
+   - See [recipes.md](recipes.md).
+4. **A web UI that replaces the Proxmox GUI.**
+   - The same navigation: datacenter, then nodes, then guests and storage. Per-object views: summary, console, hardware, snapshots, backups, firewall, tasks, logs.
+   - With AI wired in: a context-aware assistant panel, plan previews on every action, terminals and customizable dashboards.
+   - Everything is built from a shared catalog of data sources and widget templates.
+   - See [ui.md](ui.md) and [catalog.md](catalog.md).
+5. **An MCP server.** Lab documents, logs, read tools, recipes and the catalog are exposed as MCP resources, tools and prompts. The owner connects their own Claude or ChatGPT subscriptions ([clients.md](clients.md)). The harness runs no model.
+6. **A steering pack and Proxmox knowledge.** Prompts, skills and runbooks make agents act like careful senior infra, DevOps and security engineers. Curated Proxmox, ZFS, Cloudflare and Docker reference docs are available as resources, so agents don't have to search the web ([steering.md](steering.md)).
+7. **Easy adoption of an existing lab.** `hh init` connects to a lab that's already running, with any number of nodes, existing names, storage and guests. It discovers everything read-only and leaves the lab's own configuration untouched. See [onboarding.md](onboarding.md).
 
-1. **A control plane** (Python service on Postgres):
-   - inventory of nodes, guests, storage, disks, hosts, services and tunnels;
-   - the plan, approve, apply engine;
-   - durable jobs;
-   - the audit log;
-   - the credential vault;
-   - event ingest and notifications.
-2. **An MCP server.** The control plane exposes everything as typed tools, resources and prompts over MCP. Claude (claude.ai, Desktop, Code) and ChatGPT/Codex connect to it with the owner's own subscriptions. The harness holds no model API key and runs no local model.
-3. **A steering pack.** Versioned system prompts, skills and runbooks make any connected model behave like a careful senior infra, DevOps and security engineer for *this* lab.
-4. **Interfaces for the owner:**
-   - in v1, the `hh` CLI and phone approvals through ntfy;
-   - after v1, a web UI with multi-terminal panes, a customizable widget dashboard, chat, and live subscription usage.
+All of this runs on one core: plans, approvals on your phone, durable jobs, audit, brokered secrets, and OpenTelemetry ([architecture.md](architecture.md), [safety-model.md](safety-model.md)).
 
 ## What it can do (examples the design must support)
 
 | Request | What happens |
 |---|---|
-| "What's eating disk on pve2?" | Read tools, so it runs at once. Inventory and live metrics come back with a sourced answer. |
-| "Make me an Ubuntu 24.04 VM, 4 cores, 8 GB, on pve1, call it builder" | The model calls `proxmox.guest.plan_create`. The plan shows the template, VMID, storage, cloud-init values, pool and the cost to capacity. Policy auto-approves, because the guest lands in the agent pool and the change is reversible. A durable job tracks the Proxmox task. The result includes a verification read. |
-| "I added two drives, make them a ZFS stripe" | Preflight identifies the disks by serial and confirms they are empty: no partitions, signatures, mounts or pool membership. The plan states that **a stripe has no redundancy**, and that Proxmox's API has no stripe level, so the harness runs an exact `zpool create` over SSH. It shows the resulting capacity and the command. This is tier 3: approval comes from the owner's phone and the owner must type the pool name. State is checked again at apply time. |
-| "Expose Grafana at grafana.example.com" | The plan combines a Cloudflare tunnel ingress rule, a DNS record and **an Access policy**. A public hostname without an Access policy is refused. |
-| "Deploy this compose stack on docker-01" | The Git-tracked compose file is validated with `config`. Image digests are diffed. `up -d` runs over SSH, and the previous digests are recorded for rollback. |
-| "Add 'renew certs' to my tasks for Friday" | An Obsidian Tasks line is written to the vault repo through GitHub, and a reminder is scheduled through ntfy. |
+| "What's eating disk on pve2?" | The agent reads `lab://nodes/pve2` and `lab://storage`: about 1–2k tokens, cited with `as_of`. No shell. |
+| "Why did the backup fail last night?" | `logs.query(node="pve1", source="task", type="vzdump", since="24h")` returns the failing task's trimmed log and the related journal lines. The answer cites the lines. |
+| "Make me an Ubuntu 24.04 VM, 4 cores, 8 GB, on pve1, call it builder" | The agent runs `recipe:proxmox.guest.create_from_template` with typed parameters. The preview shows the template, VMID, storage, cloud-init and capacity impact. It is T1 in the agent pool, so it auto-approves. A durable job runs it and verifies the result. |
+| "I added two drives, make them a ZFS stripe" | The agent runs `recipe:storage.zfs.create_pool` (layout stripe). It identifies disks by serial and refuses non-empty ones. The plan warns "no redundancy", shows the exact `zpool create`, and is T3 with typed confirmation on your phone. |
+| "Expose Grafana at grafana.example.com" | `recipe:cloudflare.expose_service` composes Access, then the tunnel ingress, then DNS. A hostname without Access is refused. |
+| "Add a widget in my top bar showing pve2's ZFS health" | The agent looks in the catalog, which already has the `zfs.pool_health(node)` data source and the `status-list` template. It writes a **widget config**, not new code, and submits it as a T1 layout plan. |
+| "Something's wrong with the media VM" | The UI's assistant panel already has the VM context. It reads the guest document, recent tasks and logs, and offers recipes to fix the problem, each with a preview. |
 
 ## Principles
 
-1. **The model proposes; deterministic code decides.** Models produce structured plan requests. Policy, previews, preflight checks, approvals, retries and execution are plain, tested code.
-2. **Nothing writes without a plan.** Every mutation goes through plan, then approve, then apply. No tool performs a write as a side effect of being called.
-3. **The model cannot approve its own actions.** Approval arrives out of band, through ntfy, the CLI or the UI, bound to a hash of the exact plan. Approval is never a tool argument.
-4. **Least privilege is enforced by Proxmox, not just by policy.** Each capability uses its own privilege-separated API token. Agent-created guests live in a dedicated pool, so the blast radius has an ACL boundary.
-5. **Honest outcomes.** An ambiguous write is recorded as `uncertain`, never `failed`, and never retried blindly.
-6. **Observable by default.** Every tool call, plan, approval and job is traced and logged with identifiers, never with secrets.
-7. **Extensible by asking an agent.** A new capability, such as PBS, TrueNAS or a RAG server, is a package that follows a template and passes a shared contract test kit. The core does not change.
-8. **Bring your own AI, legitimately.** The harness supports subscriptions only through the paths the vendors officially support. See [clients.md](clients.md).
+1. **Deterministic state; the model reads, not discovers.** Facts about the lab come from sync code, with `as_of`. Agents never need to run discovery commands for what the lab state already knows.
+2. **Recipes before commands.** If an operation is common, it exists as a tested recipe. Agents compose recipes. A raw command is the exception (T3, exact argv shown).
+3. **Reuse before create.** For recipes, data sources, widgets and docs, agents and contributors check the catalog first, and extend what's there instead of duplicating it ([catalog.md](catalog.md)).
+4. **The model proposes; deterministic code decides.** Policy, previews, preflight, approvals, retries and execution are tested code.
+5. **Nothing writes without a plan, and the model can't approve its own** ([safety-model.md](safety-model.md)).
+6. **Least privilege, enforced by the target:** Proxmox ACLs, pools, scoped tokens, brokered secrets.
+7. **Honest outcomes and attributable failures.** Every failure is classified as agent error, recipe error or target error ([observability.md](observability.md#failure-attribution)).
+8. **Token budget is a feature.** Lab documents, tool outputs and logs have size budgets, and the token savings are measured against a plain-agent baseline ([testing-and-evals.md](testing-and-evals.md#token-efficiency)).
+9. **Fits the lab you already have.** It adopts existing clusters, names and layouts. It never needs a reinstall, and imposes no naming scheme.
+10. **Bring your own AI, legitimately** ([clients.md](clients.md)).
 
 ## Non-goals (v1)
 
-- A web UI. The CLI and phone come first; the UI vision is recorded in [ui-vision.md](ui-vision.md).
-- Running or hosting models. No local models, and no model API keys required.
-- Multi-tenant or team use. There is one owner, and every request is authenticated as that owner.
-- Replacing Terraform or Ansible for fleet-scale declarative management. An optional OpenTofu backend is a later capability.
-- Kubernetes management. Proxmox, Docker and plain Linux are the v1 targets.
+- Running or hosting models, or requiring model API keys.
+- Multi-tenant or team use. There is one owner.
+- Replacing Grafana for deep metrics. The UI embeds or links to Grafana panels.
+- Kubernetes management, and fleet-scale declarative management (an OpenTofu backend is a later capability).
+- Hosting the UI publicly. It is served on the tailnet only.
 
 ## What success looks like
 
-- **Daily use:** the owner manages the lab through it: checks, provisioning, disk work, deployments, tasks.
-- **Safety, demonstrated:** a public demo shows a prompt-injection string planted in a VM description that tries to destroy a guest. The harness blocks the destroy and leaves it pending.
-- **Reliability, demonstrated:** every failure mode in [reliability.md](reliability.md) has a named test. There is a crash-mid-job test, and a test for an approval used twice.
-- **Quality, measured:** steering and tool-use evals run in CI, and a live suite runs against a nested Proxmox.
-- **Readable in five minutes:** the README has an architecture diagram, a demo GIF (ask, preview, approve on phone, job, trace) and the reliability table.
+- **The owner stops opening the Proxmox web UI.** The harness UI and agents cover daily operations.
+- **Token savings, measured:** the same task suite runs with the harness and with a plain Codex or Claude shell on the node. The README publishes tokens, tool calls, time and success rate for both.
+- **Adoption in minutes:** on an existing 3-node cluster, `hh init` reaches a populated lab state and UI without changing the lab's configuration (apart from the harness's own user and tokens, created with the owner's approval).
+- **Safety, demonstrated:** an injection planted in a VM description never causes a T2+ action.
+- **Reliability, demonstrated:** every row in [reliability.md](reliability.md) has a test.
+- **Clean extensibility:** a new widget or recipe is added by an agent that reuses catalog parts. The diff review shows no duplicated data sources, templates or helpers.

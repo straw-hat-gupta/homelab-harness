@@ -21,7 +21,7 @@ The harness is an I/O-heavy control plane: HTTP calls to Proxmox and Cloudflare,
 | Tests | pytest, pytest-asyncio, testcontainers (Postgres), respx (httpx mocking), hypothesis for parsers |
 | CLI | Typer |
 
-The future web UI will be TypeScript (React). See [ui-vision.md](../spec/ui-vision.md).
+The future web UI will be TypeScript (React). See [ui.md](../spec/ui.md).
 
 ## Consequences
 
