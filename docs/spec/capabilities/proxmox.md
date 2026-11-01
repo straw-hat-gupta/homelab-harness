@@ -41,7 +41,7 @@ Facts marked **(unverified)** came from secondary sources or memory. Check them 
 
 ### 2.1 Principles
 
-- **No root, ever.** The harness never holds `root@pam` credentials or a password. It authenticates only with API tokens. The one exception is §6 consoles, post-v1, which use a console-only user.
+- **No root, ever.** The harness never holds `root@pam` credentials or a password. It authenticates only with API tokens. The one exception is §6 consoles (UI-4, Stage 4), which use a console-only user.
 - **One service user, many tokens.**
   - Service user: `harness@pve`, in the PVE realm, not PAM, so it has no shell login.
   - Each token is **privilege-separated** (`--privsep 1`). The effective rights are the *intersection* of the token's ACLs and the user's ACLs.
@@ -224,7 +224,7 @@ Conventions:
 | `firewall.plan_rules` → `firewall.change` | T2 (guest level, guest in pool) / T3 (node or cluster level, or enabling the firewall) | **Lockout check:** simulate the resulting ruleset for the harness's source IP and the owner's tailnet range on TCP 8006 and 22 → refused if either would be blocked | Rule diff (position, action, proto, ports, source/dest), enable/disable changes, lockout check result | Rule POST/PUT/DELETE with `digest`; enabling the firewall happens **last** | Rules equal the plan; API still reachable | Inverse rule diff (auto-applied if the post-apply reachability check fails) |
 | `ha.plan_change` → `ha.change` | T2 (add/remove an agent-pool guest) / T3 (cluster `disarm-ha`/`arm-ha`, rules, fencing-relevant changes) | Quorum OK; resource state | Resources affected, fencing implications | `/cluster/ha/resources` CRUD; 9.2 `disarm-ha`/`arm-ha` *(endpoint names unverified)* | HA status matches | Inverse change |
 | `access.plan_change` → `access.change` | T3 / T3 | — | **Privilege delta per path** (before vs after effective permissions); a **warning** if anything reaches `Administrator`, `Sys.Modify`, `Permissions.Modify`, or path `/` | **Not executed by the harness.** The job renders the exact `pveum` commands and waits for the owner to run them and click "done". Then `hh proxmox verify` re-checks the permission matrix | Effective permissions as planned | Inverse `pveum` commands |
-| `console.plan_session` → `console.open` | T3 / T3 | Target exists; console user configured | Target, user, TTL (default 15 min), recording on, "this bypasses API policy" banner | Post-v1 (§6) | — | Session ends at TTL |
+| `console.plan_session` → `console.open` | T3 / T3 | Target exists; console user configured | Target, user, TTL (default 15 min), recording on, "this bypasses API policy" banner | Stage 4, UI-4 (§6) | — | Session ends at TTL |
 | `node.plan_reboot` → `node.reboot` | T3 / T3 | Guests on the node and their HA state; quorum after the node leaves; the harness host is on this node → refused unless `--allow-self` | Guests that will stop or migrate, HA behaviour, expected downtime | Optional: migrate or shut down guests (sub-steps) → `POST /nodes/{n}/status` `command=reboot` → wait for the node to come back (poll `/nodes/{n}/status`, 15 min max) | Node online; guests' state restored per the plan | None; shown |
 | `node.plan_upgrade` → `node.apt_upgrade` | T3 / T3 | `apt/update` list refreshed (a T1 sub-step); kernel change detected → reboot plan suggested; no PVE major-version jump | Package list with old and new versions, kernel change, `pve-manager` change, "reboot required" | Run `apt-get dist-upgrade -y` via the **linux** capability (Proxmox's API has no non-interactive upgrade; the GUI uses a console) → capture output | `apt/versions` shows the target versions | None (snapshotting the root filesystem is out of scope); preview says so |
 
@@ -350,20 +350,18 @@ To approve, type the pool name: tank-fast
 
 ---
 
-## 6. Consoles (decision: post-v1, with this design)
+## 6. Consoles (UI-4, Stage 4)
 
-**Decision.** v1 has **no** web or CLI console proxy. The reason:
+**Decision (revised 2026-11-01, ADR-0011).** Consoles are part of v1. They ship in UI increment UI-4 (Stage 4), because the harness UI replaces the Proxmox web UI. Until then, `hh ssh <host>` delegates to the owner's own `ssh` over Tailscale; the harness only resolves the address from the lab state.
+
+Why consoles need their own credential class:
 - Proxmox rejects API-token-issued VNC tickets at `vncwebsocket`. Only a session ticket works.
-- A session ticket needs a password-based user and a cookie-plus-CSRF session, which is a new credential class with its own threat model.
-- A console session also bypasses the API policy entirely.
-
-**v1 alternatives:**
-- `hh ssh <host>` delegates to the owner's own `ssh` over Tailscale. The harness only resolves the address from inventory.
-- The Proxmox web UI remains available for consoles.
+- A session ticket needs a password-based, console-only user and a cookie-plus-CSRF session. That's a new credential class with its own threat model, held in the vault ([secrets.md](../secrets.md)).
+- A console session bypasses the API policy entirely, so it's audited and recorded ([ui.md](../ui.md#terminals)).
 
 There is a pending pdm-devel patch for token-owned VNC tickets (Nov 2025). Whether it has merged is unverified. If it merges, re-evaluate.
 
-**Post-v1 design:**
+**Design (UI-4):**
 
 | Element | Spec |
 |---|---|
@@ -372,7 +370,7 @@ There is a pending pdm-devel patch for token-owned VNC tickets (Nov 2025). Wheth
 | Flow | `POST /nodes/{n}/{qemu\|lxc}/{id}/termproxy` (or `/nodes/{n}/termproxy`) returns `port`, `ticket`, `user`. Then the backend opens `wss://{n}:8006/api2/json/nodes/{n}/{…}/vncwebsocket?port=&vncticket=` with the cookie. It sends `user:ticket\n` first, then relays the xterm.js protocol (`0:<len>:<data>` input, `1:<cols>:<rows>` resize, `2` ping) between the browser WebSocket and Proxmox. |
 | Policy | Opening a session is a `console.open` plan, T3. TTL is 15 min by default, 60 max, with an idle timeout of 5 min. **Agents can never open consoles**: there is no MCP tool. Only the owner, from the UI or CLI, can open one. |
 | Recording | The proxy records every session server-side as asciicast v2: input and output, with a timestamp per frame. Recordings are stored encrypted, linked from the audit event, and retained 30 days by default. The browser can't disable recording. |
-| UI | Multiple panes (dockview) in the web UI; see [ui-vision.md](../ui-vision.md). |
+| UI | Multiple panes (dockview) in the web UI; see [ui.md](../ui.md). |
 
 ---
 

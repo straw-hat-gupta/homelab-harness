@@ -65,6 +65,19 @@ See [architecture.md](docs/spec/architecture.md) for the full target layout.
   - Redaction is a safety net, not a licence to log sensitive data.
 - **Settings:** add fields to `homelab_harness.settings.Settings` (the `HH_` prefix). Never read `os.environ` elsewhere, and never load `.env` implicitly (R-24).
 
+## Reuse before create (binding)
+
+The harness exists to make agents cheap and predictable. Bloat defeats that.
+- **Search first.** Before adding a recipe, data source, step, widget template, widget, UI tab or action, lab-document section, or helper, search the catalog. Use `catalog.search`, `catalog://index`, or grep the registries listed in [catalog.md](docs/spec/catalog.md).
+- **Pick the smallest extension type** that does the job ([extending.md](docs/spec/extending.md#extension-types-pick-the-smallest-one-that-fits)). A new view of existing data is a widget *config*. An operation that composes existing steps is a composite or script recipe.
+- **Anything new must be reusable:**
+  - typed inputs and entity references;
+  - no hard-coded node, storage or bridge names (use the lab profile);
+  - a summary and examples for the catalog;
+  - tests.
+- **Facts about the lab come from the lab state.** Don't add code that re-discovers what sync already records. Extend the lab-state model and its renderers instead.
+- **Remove what you replace.** CI flags duplicate and orphaned catalog entries.
+
 ## Coding practices
 
 - Type hints everywhere; `pyright` runs in strict mode in CI. Google-style docstrings (`Args:`, `Returns:`, `Raises:`) on public functions. Comments explain *why*.

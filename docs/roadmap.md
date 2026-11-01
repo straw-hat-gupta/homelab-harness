@@ -1,136 +1,117 @@
 # Roadmap
 
-What gets built, in what order, and how we know each stage is done. Every stage ends in something the owner uses. Each stage is a handful of PRs, and each PR has one concern. Effort is in focused days and is rough.
+This file covers what gets built, in what order, and how we know each stage is done. Every stage ends in something the owner uses. Each stage is a handful of PRs, and each PR has one concern. Effort is in focused days and is rough.
 
-The spec is in [`docs/spec/`](spec/README.md), the decisions are in [`docs/adr/`](adr/), and the vocabulary is in [GLOSSARY.md](../GLOSSARY.md).
+The spec is in [`docs/spec/`](spec/README.md), the decisions are in [`docs/adr/`](adr/), and the vocabulary is in [GLOSSARY.md](../GLOSSARY.md). The goal set by [ADR-0010](adr/0010-lab-state-recipes-token-efficiency.md) is the same work as a plain agent with a shell, but with far fewer tokens. The UI that replaces the Proxmox web UI is part of v1 ([ADR-0011](adr/0011-web-ui-stack.md)).
 
-## Stage 0: Specification (current)
+## Stage 0: Specification ✅
 
-- [x] Archive v0 at the `v0-django-final` tag, with its docs in `docs/archive/v0/`.
-- [x] Write the vision, architecture, safety model, threat model, clients, observability, reliability, extending, steering, testing and evals, UI vision, and capability specs (Proxmox, Linux and Docker, Cloudflare, Obsidian).
-- [x] Write ADRs 0001–0008 and the glossary.
-- [x] The maintainer reviews the docs and resolves the [open decisions](#open-decisions) marked "before Stage 1" (D-1 and D-2, 2026-11-01).
-- [x] Specify secrets: storage, brokered use without exposing values, and owner intake ([secrets.md](spec/secrets.md), ADR-0009).
+- [x] Archive v0, and write the spec, ADRs 0001–0009 and the glossary. Resolve D-1 and D-2.
+- [x] Re-scope to lab state, recipes, the catalog, the UI in v1, and onboarding (ADR-0010 and ADR-0011, 2026-11-01).
 
-**Done when:** this PR is merged with its decisions resolved, and AGENTS.md has been rewritten for the new layout.
+## Stage 1: Foundation, read-only Proxmox, MCP (in progress)
 
-## Stage 1: Skeleton, plus read-only Proxmox (≈ 4–6 days)
+| Item | Status |
+|---|---|
+| Skeleton: uv workspace, core app, settings, redaction, logging, `hh`, CI, image (#19) | ✅ |
+| Postgres, Alembic, DBOS, append-only audit (#20) | ✅ |
+| Proxmox read-only adapter, TLS pinning, bootstrap script (#24) | ✅ |
+| Vault crypto: envelope encryption, KEK providers, secret kinds (#22) | ✅ |
+| Observability: OTel, plus Prometheus, Tempo, Loki and Grafana (#23) | ✅ |
+| MCP server with Proxmox read tools, interim owner tokens, audit per call, contract kit | in progress |
+| Vault persistence and the `hh secret` and `hh vault` CLI | next |
+| Owner OAuth: embedded authorization server ([ADR-0007](adr/0007-owner-auth.md)) | next |
 
-Daily value: "What's going on in my cluster?" from Claude Code, Codex or claude.ai.
+**Done when:**
+- Claude Code and Codex connect over the tailnet and answer read questions about the cluster.
+- The trace is visible in Grafana.
+- `hh doctor` is green.
 
-**Repo and CI**
-- uv workspace (`packages/core`, `packages/sdk`, `capabilities/proxmox`, `cli`), ruff, pyright strict, pytest with testcontainers.
-- CI: lint, types, tests, the contract kit, gitleaks, pip-audit, Docker build, docs links. Renovate.
+## Stage 2: Lab state, logs, onboarding, and UI-1 and UI-2 (≈ 7–9 days)
+
+Daily value: open the harness UI instead of the Proxmox UI to look at the lab. Agents read the lab documents instead of running discovery.
+
+**Lab state** ([lab-state.md](spec/lab-state.md))
+- Entities, sync workflows, change events and SSE.
+- Renderers for `lab://overview`, `nodes`, `guests`, `storage`, `network`, `backups` and `services`, with budgets.
+- `hh lab show`, plus the optional Git mirror.
+
+**Logs**
+- Loki ingestion of Proxmox task logs.
+- A node collector recipe (Alloy) for journald.
+- `logs.query` and `logs.around`, with dedup and budget.
+
+**Catalog** ([catalog.md](spec/catalog.md))
+- `@data_source` and the starter data sources.
+- `catalog.search` and `catalog.describe`, plus `catalog://index`.
+- The anti-bloat CI checks.
+
+**Onboarding** ([onboarding.md](spec/onboarding.md))
+- `hh init`: endpoint, TLS pin, identity script, discovery, inferred lab profile, `hh doctor`.
+- Profile inference tests across lab shapes.
+
+**UI-1 and UI-2** ([ui.md](spec/ui.md))
+- **Shell:** the app shell with its registries (objects, tabs, routes, templates); the side tree; object pages for Summary, Tasks and Logs; search; SSE; passkey login.
+- **Widgets:** the widget templates, the home dashboard and top-bar widgets, and `ui.layout.plan_update`.
+
+**Done when:**
+- On the owner's existing cluster, `hh init` completes with no lab changes beyond the harness identity, and the UI shows every node and guest.
+- "What's eating disk on pve2" is answered from `lab://` documents with no shell.
+- Token budgets are enforced in CI.
+
+## Stage 3: Plans, approvals, jobs, recipes, and UI-3 (≈ 6–8 days)
+
+Daily value: operate guests from the UI or from chat, with approvals on the phone.
 
 **Core**
-- FastAPI app, settings, structlog with redaction, OTel.
-- `/healthz` and `/readyz`.
-- Postgres with Alembic, DBOS initialized.
-- The secrets vault: envelope encryption, KEK providers, `hh secret add/list/rotate/revoke`, the `broker` mode and the redaction scanner. Later stages add grants, intake, `ssh-sign` and egress ([secrets.md](spec/secrets.md#roadmap-placement)).
-- Inventory sync workflows, and an audit writer for tool calls.
+- The plan model, hashing, preview renderer, and the policy engine (tiers, floors).
+- Approvals with ntfy (ADR-0006) and `hh approve`.
+- DBOS jobs: re-preflight, retry classes, UPID polling, verification, outcomes, and failure attribution.
 
-**MCP**
-- Streamable HTTP server at `/mcp`, with the tool registry built from capability manifests.
-- Owner OAuth (ADR-0007), with Claude Code and Codex connected over the tailnet.
+**Recipes** ([recipes.md](spec/recipes.md))
+- The `@recipe` SDK, ref resolution against the lab state, composition, `recipes.search` and `describe`, and the script-recipe runner.
+- The guest recipe set.
 
-**Proxmox, read-only**
-- `hh proxmox bootstrap` prints the exact `pveum` commands.
-- The typed adapter pins TLS.
-- All T0 read tools and inventory resources.
-
-**Steering v0**
-- The operator prompt as an MCP prompt, plus the `proxmox-health-check` skill.
-
-**Deploy**
-- Compose with harness, Postgres, the OTel Collector, Grafana, Prometheus, Tempo, Loki and ntfy, plus the overview dashboard.
+**UI-3**
+- Actions generated from recipes, the approvals inbox, job progress, and the assistant panel (decided by ADR at the start of the stage).
 
 **Done when:**
-- A clean install followed by `hh doctor` is green (R-23).
-- "What's using disk on pveX?" is answered with `as_of` citations in Claude Code and Codex.
-- The trace is visible in Grafana.
-- The contract kit is green.
-- R-16, R-17, R-18, R-24 and R-25 have tests.
-
-## Stage 2: Plan, approve, apply, plus guest operations (≈ 5–7 days)
-
-Daily value: provision and operate guests safely from chat, with approvals on the phone.
-
-- Plan model, hashing, preview renderer, and policy engine (tiers, floors, `policy.toml`).
-- Approvals state machine, ntfy actions (ADR-0006), and the `hh approve`, `hh plans` and `hh jobs` commands.
-- DBOS jobs: re-preflight, steps with retry classes, UPID polling, verification, outcomes including `uncertain`, and per-scope queues.
-- Proxmox T1/T2 operations:
-  - power and snapshots;
-  - create from template with cloud-init, and clone;
-  - config changes, resize and migrate;
-  - backup now;
-  - destroy (T3).
-- Proxmox event webhook ingest, routed to ntfy alerts.
-
-**Done when:**
-- "Make me a VM" works end to end, auto-approved in the agent pool.
+- "Make me a VM" works from chat and from a UI button.
 - Destroy requires typed confirmation.
-- Tests for these requirements pass: crash recovery (R-11), approval races (R-05), drift (R-10), ambiguity (R-02), UPID tracking (R-29), concurrency (R-31) and dry-run purity (R-04).
+- Tests pass for crash recovery, approval races, drift, ambiguity, UPID tracking and dry-run purity.
 
-## Stage 3: Storage and hosts (≈ 5–7 days)
+## Stage 4: Storage, hosts, Docker, and UI-4 terminals (≈ 6–8 days)
 
-Daily value: the "two new drives into a ZFS pool" flow, plus deploying Docker stacks.
+- **Recipes:** disk wipe, ZFS create and add-vdev (including a stripe through `zpool create`), storage add, the node-admin token flow, staged network change with dead-man revert, firewall rules with a lockout check.
+- **Linux capability:** the SSH executor, sudoers generated from the installed script recipes, and the starter script recipes.
+- **Docker capability:** stack deploy and rollback, plus `hh docker adopt`.
+- **UI-4:** terminals (node shell, VM and LXC console, SSH hosts) with recording.
+- **Done when:** the ZFS worked example passes on a nested PVE, a stack deploys from the UI, and R-27 and R-28 have tests.
 
-**Proxmox storage**
-- Disk inventory with SMART.
-- Disk wipe.
-- ZFS create for every layout, including a stripe through the `linux` capability, plus storage registration.
-- Node-admin token minting flow.
+## Stage 5: Steering pack, reference docs, evals, token efficiency (≈ 4–5 days)
 
-**Linux capability**
-- SSH adapter, typed argv operations and the sudoers generator.
-- The out-of-band revert path, which unblocks `network.apply`.
+- **Steering:** the `steering/` source plus the build (Claude Code plugin, Codex skills, MCP prompts), the `extend-harness` and `capture-recipe` skills, and the `docs://` reference set.
+- **Evals:**
+  - tier A goldens and the injection suite in CI;
+  - tier B and tier C runs;
+  - the **token-efficiency suite** against the plain-agent baseline, with results in the README.
+- **Done when:** a steering regression fails CI, and the README shows the measured token ratio.
 
-**Docker capability**
-- Stacks from Git, with config validation, digest diff, `up -d` and rollback.
+## Stage 6: Cloudflare, Obsidian, usage, UI-5, v1.0 (≈ 5–6 days)
 
-**Proxmox network and firewall**
-- Staged network apply with a dead-man revert, behind a flag until it is tested.
-- Firewall rule changes with a lockout check.
-
-**Done when:** the ZFS worked example in [proxmox.md](spec/capabilities/proxmox.md) passes on a nested PVE, and R-27 and R-28 have tests.
-
-## Stage 4: Steering pack v1, plus evals (≈ 3–4 days)
-
-- The full `steering/` source, the build script that generates the Claude Code plugin, Codex skills, claude.ai zips, MCP prompts and resources, and a CI sync check.
-- Tier A golden-transcript evals and the injection suite in CI (R-32).
-- The tier B live runner (owner CLI or an API budget).
-- The tier C nested-PVE suite, with results recorded in `docs/verification.md`.
-
-**Done when:** a regression in steering or tool descriptions fails CI, and the README publishes the eval scores.
-
-## Stage 5: Cloudflare, plus Obsidian tasks (≈ 4–5 days)
-
-- The Cloudflare capability: DNS, tunnels with ingress, Access. The rule "no public hostname without Access" is enforced (R-30).
-- The harness's own public MCP endpoint goes behind a tunnel and Access, so claude.ai and ChatGPT can connect.
-- The Obsidian capability: a Tasks parser, task add, complete and reschedule (T1), note edits through a PR (T2), and reminders through DBOS to ntfy (R-21).
-
-**Done when:**
-- "Expose Grafana at grafana.example.com" produces one combined plan, and applying it works.
-- Tasks added from claude.ai on a phone show up in Obsidian.
-- A dated task triggers a reminder.
-
-## Stage 6: Usage, automations, v1.0 (≈ 3–4 days)
-
-- Client usage ingest: the Claude Code statusline script, OTel from both CLIs, `hh usage`, and a Grafana usage dashboard.
-- The `hh agent` runner: scheduled health summaries and event triage through the owner's `claude -p` or `codex exec`.
-- Showcase work:
-  - the README rewrite, with a diagram, a demo GIF and the reliability table with every Test cell filled;
-  - an SBOM and provenance for the image;
-  - a `v1.0.0` tag.
-
-**Done when:** every v1 row in [reliability.md](spec/reliability.md) has a test, and the owner has used the harness daily for two weeks.
+- **Cloudflare:** DNS, tunnels and Access, with `cloudflare.expose_service` and adoption of existing tunnels. Also the public MCP endpoint, for claude.ai and ChatGPT.
+- **Obsidian:** tasks, notes and reminders.
+- **Usage:** client usage ingest and the usage widget.
+- **UI-5:** the Services, Cloudflare, Stacks, Tasks and Audit pages.
+- **Release:** the README showcase (a diagram, a demo GIF, the reliability table, token savings), SBOM and provenance, and `v1.0.0`.
+- **Done when:** every v1 row in [reliability.md](spec/reliability.md) has a test, and the owner has used the harness instead of the Proxmox UI for two weeks.
 
 ## After v1
 
-- **Web UI** ([ui-vision.md](spec/ui-vision.md)): dockview shell, multi-terminal panes, widget dashboard, approvals inbox, live usage widget, chat.
-- **Consoles:** a proxied Proxmox termproxy for node, VM and LXC shells, with recording.
-- **Further capabilities:** `knowledge` (RAG over the vault, runbooks and lab docs, using full-text search plus agentic retrieval), `pbs`, `opentofu`, `home_assistant`, `truenas`.
-- MCP Apps, so widgets render inside Claude and ChatGPT.
+- More capabilities: `pbs`, `knowledge` (RAG over the vault, runbooks and the lab state), `opentofu`, `home_assistant` and `truenas`.
+- MCP Apps, so widgets also render inside Claude and ChatGPT.
+- Ceph management recipes.
+- Multiple clusters through PDM.
 
 ## Open decisions
 
@@ -138,12 +119,15 @@ Daily value: the "two new drives into a ZFS pool" flow, plus deploying Docker st
 |---|---|---|---|
 | D-1 | ~~Project and repo name~~ | **Decided 2026-11-01:** homelab-harness (`homelab_harness` packages, `hh` CLI). The repo was renamed on 2026-11-01. | — |
 | D-2 | ~~Owner auth~~ | **Decided 2026-11-01:** an embedded authorization server ([ADR-0007](adr/0007-owner-auth.md), accepted) | — |
-| D-3 | Proxmox node-admin token: minted per plan, or a short-lived token stored for a maintenance window ([proxmox.md §2.3](spec/capabilities/proxmox.md)) | Minted per plan by default; a window mode is available | Stage 3 |
-| D-4 | SSH: plain OpenSSH on the tailnet, or Tailscale SSH ([linux-docker.md](spec/capabilities/linux-docker.md)) | OpenSSH, with Tailscale ACLs as the network boundary | Stage 3 |
-| D-5 | Compose stacks: managed from a Git repo, or adopted from hosts | A Git repo, with a one-time adoption command | Stage 3 |
-| D-6 | Cloudflare Access IdP for the owner | Email one-time PIN in v1 | Stage 5 |
-| D-7 | Is the ChatGPT Secure MCP Tunnel an alternative to a public hostname? | Evaluate it during Stage 5 | Stage 5 |
-| D-8 | Obsidian task file layout and the reminder-time convention ([obsidian.md](spec/capabilities/obsidian.md)) | `Tasks/Inbox.md`, with `@HH:MM` | Stage 5 |
-| D-9 | GitHub webhook vs polling for vault changes | Polling every 5 minutes in v1 | Stage 5 |
+| D-3 | Proxmox node-admin token: minted per plan, or a short-lived token stored for a maintenance window ([proxmox.md §2.3](spec/capabilities/proxmox.md)) | Minted per plan by default, with a window mode available | Stage 4 |
+| D-4 | SSH: plain OpenSSH on the tailnet, or Tailscale SSH ([linux-docker.md](spec/capabilities/linux-docker.md)) | OpenSSH, with Tailscale ACLs as the network boundary | Stage 4 |
+| D-5 | Compose stacks: managed from a Git repo, or adopted from hosts | A Git repo, with `hh docker adopt` | Stage 4 |
+| D-6 | Cloudflare Access IdP for the owner | Email one-time PIN in v1 | Stage 6 |
+| D-7 | Is the ChatGPT Secure MCP Tunnel an alternative to a public hostname? | Evaluate it during Stage 6 | Stage 6 |
+| D-8 | Obsidian task file layout and the reminder-time convention ([obsidian.md](spec/capabilities/obsidian.md)) | `Tasks/Inbox.md`, with `@HH:MM` | Stage 6 |
+| D-9 | GitHub webhook vs polling for vault changes | Polling every 5 minutes in v1 | Stage 6 |
 | D-10 | PBS read-only in v1.x, or wait for restore planning in v2 | Read-only in v1.x | After v1 |
-| D-11 | Live-eval budget: owner CLI only, or a small API key budget for nightly runs | Owner CLI for manual runs; decide on nightly runs in Stage 4 | Stage 4 |
+| D-11 | Live-eval budget: owner CLI only, or a small API key budget for nightly runs | The owner CLI for manual runs; decide on nightly runs in Stage 5 | Stage 5 |
+| D-12 | Assistant panel engine: a bridge to the owner's CLI, API-key mode, or deep links ([ui.md](spec/ui.md#assistant-panel)) | Start with deep links, then add the CLI bridge | Stage 3 |
+| D-13 | Node log collector: Grafana Alloy or the OTel Collector | Alloy (first-class journald and Docker sources) | Stage 2 |
+| D-14 | Git mirror of lab documents: on by default? | Off by default, and offered during `hh init` | Stage 2 |

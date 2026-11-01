@@ -48,6 +48,15 @@ These requirements come from three sources:
 | R-35 | Each secret use is checked against a grant (client, mode, scope, expiry) and audited. A use without a matching grant is refused. | new (secrets) | |
 | R-36 | `ssh-sign` refuses to sign for a destination host key outside the grant's hosts. `http-inject` refuses upstreams, methods or paths outside its route. | new (secrets) | |
 | R-37 | Secret intake never carries the value through MCP. A request produces URL elicitation or a link, and the intake page requires an owner session. | new (secrets) | |
+| R-38 | Lab documents are deterministic (the same state renders byte-identical output) and stay within their token budgets. | new (lab state) | |
+| R-39 | A failed sync source marks only its own entities stale. It never deletes or blanks them, and readiness reports `degraded`. | new (lab state) | |
+| R-40 | Secret-bearing fields (`cipassword`, keys, tokens) are dropped at ingest and never stored in the lab state or the Git mirror. | new (lab state) | |
+| R-41 | `logs.query` output is de-duplicated, trimmed, within budget, redacted, and marked untrusted. | new (logs) | |
+| R-42 | Recipes take typed inputs and entity references (no free-text identifiers), declare a tier at or above the floors, have verify and rollback, and record `recipe@version` on every plan and job. | new (recipes) | |
+| R-43 | Every failed job carries a failure class: agent, recipe, target or uncertain. | new (observability) | |
+| R-44 | Onboarding is read-only apart from the harness identity, which the owner approves. Re-running `hh init` changes nothing. | new (onboarding) | |
+| R-45 | The catalog has no duplicate or orphaned data sources, templates or steps (CI check). | new (catalog) | |
+| R-46 | Token-efficiency budgets: golden context-cost fixtures regress by no more than 10% per PR. | new (evals) | |
 
 Safety invariants S1–S10 are tested directly. Most also map to a row above: S1→R-04/R-06, S2→R-08, S3→R-05, S4→R-07, S5→R-10, S6→R-02, S7→R-32, S8→R-17, S9→R-16, S10→R-13.
 

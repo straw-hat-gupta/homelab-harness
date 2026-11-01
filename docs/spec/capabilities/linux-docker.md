@@ -9,7 +9,7 @@ Both capabilities reach their targets over SSH, so they share one transport. `li
 | In scope | Out of scope (v1) |
 |---|---|
 | Typed host operations: service status and restart, journal reads, package list and upgrade, disk and filesystem info, reading files under allowlisted paths, `zpool` and `zfs` commands | Configuration management (Ansible/Salt), user and group management, firewall (`nftables`) editing |
-| A raw command escape hatch, always T3, with the exact argv shown | Interactive shells from MCP. Terminals are a UI feature with their own approval; see [ui-vision.md](../ui-vision.md). |
+| A raw command escape hatch, always T3, with the exact argv shown | Interactive shells from MCP. Terminals are a UI feature with their own approval; see [ui.md](../ui.md). |
 | Compose stacks tracked in Git: validate, diff, deploy, roll back | Swarm, Kubernetes, building images on the host |
 | Container status, logs and inspect | Registry management |
 
