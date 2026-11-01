@@ -35,7 +35,7 @@ These requirements come from three sources:
 | R-22 | A capability's business rules have one owner (its planner and executor). No duplicate implementations across entry points. | v0 #17 | |
 | R-23 | A clean install reaches a healthy stack (`docker compose up`, then `hh doctor` green) by following the docs alone. | v0 #18, x-check 9 | |
 | R-24 | Settings are read in one place (pydantic-settings), with no stray `os.getenv`. Tests don't load a developer `.env`. | x-check 8 | |
-| R-25 | Encryption keys rotate, and stored secrets re-encrypt with a command. Startup fails clearly if keys are misconfigured. | x-check 7 | |
+| R-25 | The KEK rotates by rewrapping DEKs (`hh vault rotate-kek`), and secrets rotate by version. Startup fails clearly if the KEK provider is missing or wrong. There is no plaintext fallback. | x-check 7 | |
 | R-26 | Locked dependencies have no known high or critical CVEs at release (pip-audit in CI). | x-check CVEs | |
 | R-27 | Disk identity: destructive disk operations target `/dev/disk/by-id` paths matched to recorded serials, and refuse non-empty disks. | new (infra) | |
 | R-28 | Lockout protection: network, firewall and ACL plans fail preflight if they would cut the harness's or owner's access, and network apply auto-reverts unless confirmed. | new (infra) | |
@@ -44,6 +44,10 @@ These requirements come from three sources:
 | R-31 | Per-scope concurrency: no two jobs mutate the same node, guest, storage, stack or zone at once. | new (infra) | |
 | R-32 | Prompt-injection resilience: planted instructions in target text never cause a T2+ job, or T1 auto-approval, in the eval suite. | new (AI) | |
 | R-33 | Inventory reads report `as_of`. Plans never rely on inventory alone (live preflight). | new (infra) | |
+| R-34 | No MCP tool, resource, prompt or error returns a secret value, length or hash. A schema-level test walks every tool's output type. | new (secrets) | |
+| R-35 | Each secret use is checked against a grant (client, mode, scope, expiry) and audited. A use without a matching grant is refused. | new (secrets) | |
+| R-36 | `ssh-sign` refuses to sign for a destination host key outside the grant's hosts. `http-inject` refuses upstreams, methods or paths outside its route. | new (secrets) | |
+| R-37 | Secret intake never carries the value through MCP. A request produces URL elicitation or a link, and the intake page requires an owner session. | new (secrets) | |
 
 Safety invariants S1–S10 are tested directly. Most also map to a row above: S1→R-04/R-06, S2→R-08, S3→R-05, S4→R-07, S5→R-10, S6→R-02, S7→R-32, S8→R-17, S9→R-16, S10→R-13.
 

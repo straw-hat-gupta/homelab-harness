@@ -69,7 +69,7 @@ packages/
     jobs/                #   DBOS workflows: apply, poll external task, verify, outcome
     inventory/           #   read model + sync workflows
     audit/               #   append-only audit writer + queries
-    vault/               #   encrypted secrets, MultiFernet rotation
+    secrets/             #   envelope-encrypted vault, grants, brokers (ssh-sign, egress), intake — see secrets.md
     events/              #   ingest, schedules, reminders, notification routing
     telemetry/           #   OTel setup, redaction, usage ingest
   sdk/                   # the capability contract: base classes, decorators, test kit
