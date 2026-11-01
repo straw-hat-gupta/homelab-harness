@@ -35,7 +35,7 @@ These requirements come from three sources:
 | R-22 | A capability's business rules have one owner (its planner and executor). No duplicate implementations across entry points. | v0 #17 | |
 | R-23 | A clean install reaches a healthy stack (`docker compose up`, then `hh doctor` green) by following the docs alone. | v0 #18, x-check 9 | |
 | R-24 | Settings are read in one place (pydantic-settings), with no stray `os.getenv`. Tests don't load a developer `.env`. | x-check 8 | |
-| R-25 | The KEK rotates by rewrapping DEKs (`hh vault rotate-kek`), and secrets rotate by version. Startup fails clearly if the KEK provider is missing or wrong. There is no plaintext fallback. | x-check 7 | |
+| R-25 | The KEK rotates by rewrapping DEKs (`hh vault rotate-kek`), and secrets rotate by version. Startup fails clearly if the KEK provider is missing or wrong. There is no plaintext fallback. | x-check 7 | Partial: `test_secrets_crypto.py` (`test_rewrap_opens_with_new_kek_only_and_keeps_ciphertext`, `test_any_tampering_raises_integrity_error`, `test_wrong_kek_raises`); `test_secrets_keys.py` (`test_build_key_provider_fails_clearly_when_incomplete`, `test_app_startup_fails_with_env_provider_in_prod`, file-mode refusals). `hh vault rotate-kek` and secret versions come with persistence. |
 | R-26 | Locked dependencies have no known high or critical CVEs at release (pip-audit in CI). | x-check CVEs | |
 | R-27 | Disk identity: destructive disk operations target `/dev/disk/by-id` paths matched to recorded serials, and refuse non-empty disks. | new (infra) | |
 | R-28 | Lockout protection: network, firewall and ACL plans fail preflight if they would cut the harness's or owner's access, and network apply auto-reverts unless confirmed. | new (infra) | |

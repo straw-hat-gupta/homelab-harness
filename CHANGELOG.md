@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added (vault crypto core)
+- `homelab_harness.secrets`: the vault's cryptographic core, with no persistence yet.
+  - Envelope encryption: a random 256-bit DEK per secret version, AES-256-GCM with random 96-bit nonces, and the DEK wrapped by the KEK. Both layers bind `secret_id`, version and kind (the wrapped DEK also binds the KEK id) as associated data. KEK rotation rewraps DEKs without touching ciphertext. Any tampering, or the wrong KEK, raises `SecretIntegrityError`; there is no plaintext fallback.
+  - KEK providers: a keyring file (refused unless it is mode 0400 and owned by the service user), systemd credentials, and an env variable for dev and test only (refused in prod). Selected with `HH_SECRETS_KEK_PROVIDER`. A configured provider that is missing or broken stops startup, and `/readyz` gains a `vault` check.
+  - Typed models for the kinds `ssh_key`, `password`, `api_token`, `proxmox_token`, `cloudflare_token`, `github_token`, `file` and `kv`, separating encrypted fields from plain metadata. Values are wrapped so they never show in `repr`, formatting or dumps, and are registered with the redactor as soon as they are decrypted. SSH keys derive their public key and `SHA256:` fingerprint.
+
 ### Added (Proxmox read adapter)
 - A new workspace package, `homelab-harness-proxmox` (`capabilities/proxmox`). It imports only the SDK. Everything below is **mocked; not yet verified live** against a PVE node.
 - `ProxmoxClient`: an async, read-only Proxmox VE API client with typed pydantic models. It covers version, cluster status and resources, nodes and node status, node RRD metrics, QEMU and LXC lists, configs and status, storage config, status and content, disks and SMART, node network (with staged changes), pools, tasks with status and log (UPID-routed), HA status, and backup jobs.

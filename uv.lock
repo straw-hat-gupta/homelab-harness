@@ -562,6 +562,7 @@ version = "0.1.0"
 source = { editable = "packages/core" }
 dependencies = [
     { name = "alembic" },
+    { name = "cryptography" },
     { name = "dbos" },
     { name = "fastapi" },
     { name = "homelab-harness-sdk" },
@@ -576,6 +577,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.20,<2" },
+    { name = "cryptography", specifier = ">=44" },
     { name = "dbos", specifier = ">=3.4,<4" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "homelab-harness-sdk", editable = "packages/sdk" },
