@@ -31,7 +31,7 @@ evals/<name>/          # golden transcripts + injection cases for this domain
 ## The SDK surface (planned, illustrative)
 
 ```python
-from harness_sdk import read_tool, plan_tool, step, Preflight, Preview, RetryClass, Tier
+from homelab_harness_sdk import read_tool, plan_tool, step, Preflight, Preview, RetryClass, Tier
 
 @read_tool(credential="read")
 async def list_pools(ctx, node: str) -> list[ZfsPool]: ...

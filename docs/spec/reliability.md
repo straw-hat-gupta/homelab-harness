@@ -33,7 +33,7 @@ These requirements come from three sources:
 | R-20 | Parsers are pure and fixture-tested with real-world shapes (Proxmox API responses, Tasks lines, compose files, journal output). | v0 #14 | |
 | R-21 | Times are aware UTC internally, converted at the edges with `zoneinfo`. Reminders are tested across DST in both directions. | v0 #15 | |
 | R-22 | A capability's business rules have one owner (its planner and executor). No duplicate implementations across entry points. | v0 #17 | |
-| R-23 | A clean install reaches a healthy stack (`docker compose up`, then `aa doctor` green) by following the docs alone. | v0 #18, x-check 9 | |
+| R-23 | A clean install reaches a healthy stack (`docker compose up`, then `hh doctor` green) by following the docs alone. | v0 #18, x-check 9 | |
 | R-24 | Settings are read in one place (pydantic-settings), with no stray `os.getenv`. Tests don't load a developer `.env`. | x-check 8 | |
 | R-25 | Encryption keys rotate, and stored secrets re-encrypt with a command. Startup fails clearly if keys are misconfigured. | x-check 7 | |
 | R-26 | Locked dependencies have no known high or critical CVEs at release (pip-audit in CI). | x-check CVEs | |

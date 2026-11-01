@@ -37,7 +37,7 @@ Every token gets:
 - a **client IP filter**, set to the lab's egress IP or IPs;
 - a **TTL**, 90 days by default, with expiry raised as an event 14 days ahead.
 
-`aa target add cloudflare` prints the exact token templates. `cloudflare.target.check` verifies that each token exists, is active, and has no permissions beyond its template. It uses the token-verify endpoint and compares the declared scopes. The permission-group names are (unverified) and must be checked against the current dashboard before implementation.
+`hh target add cloudflare` prints the exact token templates. `cloudflare.target.check` verifies that each token exists, is active, and has no permissions beyond its template. It uses the token-verify endpoint and compares the declared scopes. The permission-group names are (unverified) and must be checked against the current dashboard before implementation.
 
 ## Adapter behavior
 
@@ -97,7 +97,7 @@ claude.ai and ChatGPT connectors call the harness's MCP server from the vendors'
 
 - `cloudflared` runs next to the harness and publishes only the path prefix `/mcp` (and the OAuth endpoints) on `mcp.<owner-domain>`. The REST API, ntfy action callbacks, and any future UI stay on the tailnet.
 - The MCP endpoint is authenticated by **the harness's OAuth 2.1 authorization server**, with the owner as the only resource owner. It is not behind an interactive Access login, because vendor clouds can't complete one. Access may still be used to restrict it to the vendors' published IP ranges, where those exist (unverified for ChatGPT).
-- The bootstrap is a special case. `aa setup public-endpoint` produces a T3 plan that runs the exposure with `public_allowlist: [mcp.<domain>]`. It is the only allowlisted hostname by default.
+- The bootstrap is a special case. `hh setup public-endpoint` produces a T3 plan that runs the exposure with `public_allowlist: [mcp.<domain>]`. It is the only allowlisted hostname by default.
 - `cloudflare.exposure.report` always lists this endpoint first, so its exposure is never forgotten.
 
 ## Test plan

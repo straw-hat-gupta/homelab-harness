@@ -24,7 +24,7 @@ This is the only pattern that is clearly permitted:
 - **Transport:** streamable HTTP at `/mcp`, implementing spec 2026-07-28 (stateless, `MCP-Protocol-Version` header).
 - **Auth:** the harness is an OAuth 2.1 resource server with protected-resource metadata (RFC 9728). It validates resource indicators (RFC 8707) and supports Client ID Metadata Documents, with DCR as a fallback for older clients.
 - **Authorization server:** an embedded single-owner server built into the harness. The owner logs in with a passkey (WebAuthn) and a recovery code, and there is no registration. Alternatively, delegate to an existing lab IdP such as Authentik or Keycloak. ADR-0007 decides which.
-- **Every authenticated principal is the owner.** Each client gets its own client ID, so audit and usage can tell Claude Code, claude.ai and ChatGPT apart. Tokens can be revoked per client (`aa clients revoke`).
+- **Every authenticated principal is the owner.** Each client gets its own client ID, so audit and usage can tell Claude Code, claude.ai and ChatGPT apart. Tokens can be revoked per client (`hh clients revoke`).
 - **Tool annotations:**
   - Read tools: `readOnlyHint: true`.
   - `plan_*` tools: `readOnlyHint: true`, because they don't mutate targets and only write a plan row in the harness.
@@ -37,7 +37,7 @@ This is the only pattern that is clearly permitted:
 
 Some features want a model without a human at the keyboard: nightly health summaries, event triage ("backup failed, what happened?"), and later the web UI chat. Options, in order of preference:
 
-1. **Owner's own CLI, invoked on the owner's machine.** A small `aa agent` runner on the workstation (or a lab VM where the owner signed in interactively) calls `claude -p` or `codex exec` with the harness MCP config and a steering prompt. This is the first-party CLI, unmodified, running on the owner's own login for the owner's own use, which the vendors' docs describe as normal individual usage. The harness only queues the request; the runner pulls it.
+1. **Owner's own CLI, invoked on the owner's machine.** A small `hh agent` runner on the workstation (or a lab VM where the owner signed in interactively) calls `claude -p` or `codex exec` with the harness MCP config and a steering prompt. This is the first-party CLI, unmodified, running on the owner's own login for the owner's own use, which the vendors' docs describe as normal individual usage. The harness only queues the request; the runner pulls it.
 2. **API key mode (optional).** If the owner adds an Anthropic or OpenAI API key (Max/Ultra plans include monthly API credits for a linked Console org, per the Oct 2026 support note), the harness can run an embedded agent loop. This is the documented automation path. It is off by default.
 3. **Not allowed:** reading `~/.claude/.credentials.json` or `~/.codex/auth.json`, calling vendor endpoints with subscription tokens, spoofing client headers, or serving one subscription to more than one person.
 

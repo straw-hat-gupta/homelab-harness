@@ -7,6 +7,9 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Removed
 - **BREAKING:** the v0 Django/DRF/Celery backend (all apps, dependencies, Docker image, Compose files, and the release workflow) is removed from `main` ahead of a rewrite. It is preserved at tag `v0-django-final`; its docs, the 2026-10-30 audit, and its 2026-10-31 cross-check moved to `docs/archive/v0/`.
 
+### Decided
+- The project is named **homelab-harness**, with an `hh` CLI. Owner auth is an embedded single-owner OAuth authorization server (ADR-0007, accepted).
+
 ### Added (rewrite specification)
 - `docs/spec/` defines the rewrite as an AI control plane for Proxmox home labs:
   - vision, architecture, safety model, threat model, and client connections (bring your own subscription);

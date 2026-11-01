@@ -31,7 +31,7 @@ The harness has four parts:
 2. **An MCP server.** The control plane exposes everything as typed tools, resources and prompts over MCP. Claude (claude.ai, Desktop, Code) and ChatGPT/Codex connect to it with the owner's own subscriptions. The harness holds no model API key and runs no local model.
 3. **A steering pack.** Versioned system prompts, skills and runbooks make any connected model behave like a careful senior infra, DevOps and security engineer for *this* lab.
 4. **Interfaces for the owner:**
-   - in v1, the `aa` CLI and phone approvals through ntfy;
+   - in v1, the `hh` CLI and phone approvals through ntfy;
    - after v1, a web UI with multi-terminal panes, a customizable widget dashboard, chat, and live subscription usage.
 
 ## What it can do (examples the design must support)
