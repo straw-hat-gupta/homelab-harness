@@ -1,6 +1,6 @@
 # Secrets
 
-> **Status: specification.** Nothing here is implemented yet. It was researched on 2026-11-01, and anything marked "(unverified)" came from secondary sources. This document extends [safety-model.md](safety-model.md) S9 and replaces the "vault" sketch in [architecture.md](architecture.md). Terms follow the [glossary](../../GLOSSARY.md).
+> **Status: specification, partly implemented.** Implemented so far: the envelope encryption, the KEK providers and the kind models in `homelab_harness.secrets` (no persistence, CLI, grants or use modes yet). It was researched on 2026-11-01, and anything marked "(unverified)" came from secondary sources. This document extends [safety-model.md](safety-model.md) S9 and replaces the "vault" sketch in [architecture.md](architecture.md). Terms follow the [glossary](../../GLOSSARY.md).
 
 ## Goal
 
@@ -33,6 +33,15 @@ Every secret also carries:
 - `source` (`local`, or an external reference such as `op://…`, `bao://…` or `sops://…`);
 - `created_at`, `rotated_at`, `expires_at`, and `rotate_every` (which drives reminders);
 - `version` (rotation creates a new version, and old versions are kept until purged).
+
+Validation per kind:
+- `ssh_key`: the private key must load as OpenSSH or PEM (PKCS#8 or traditional), with its passphrase if it has one. The public key and the fingerprint (`SHA256:` plus unpadded base64, as `ssh-keygen -l` prints it) are derived from it. Passphrase-protected keys in OpenSSH format are refused for now, because decrypting them needs `bcrypt`.
+- `proxmox_token`: the secret must be a UUID, and the token id must be `user@realm!tokenid`.
+- `api_token`: base URLs must not embed credentials, and the `header` scheme needs a header name.
+- `file`: at most 1 MiB.
+- `kv`: at least one key, with names matching `[A-Za-z_][A-Za-z0-9_.-]*`.
+
+Decrypted values are held in wrappers that print as `SecretValue(***)` and dump as `***`, can't be pickled, and give up the value only through `.reveal()`. Validation errors never echo the input. Every value is registered with the redactor as soon as it is wrapped. Text `file` contents are registered only up to 64 KiB.
 
 ## Use modes (ranked safest first)
 
@@ -88,14 +97,19 @@ What agents can see: `secrets.list` and `secrets.describe` return names, kinds, 
 ## Storage and encryption
 
 - **Envelope encryption.**
-  - Each secret version has a random 256-bit data key (DEK). The value is encrypted with AES-256-GCM using a 96-bit random nonce, with AAD = `secret_id|version|kind`.
-  - The DEK is wrapped by the key-encryption key (KEK), also with AES-GCM.
-  - The row stores `ciphertext`, `nonce`, `wrapped_dek` and `kek_id`.
+  - Each secret version has a random 256-bit data key (DEK). The value is encrypted with AES-256-GCM using a 96-bit random nonce, with AAD = `hh-secret-v1|secret_id|version|kind`.
+  - The DEK is wrapped by the key-encryption key (KEK), also with AES-GCM and its own random nonce, with AAD = `hh-dek-v1|kek_id|secret_id|version|kind`. A wrapped DEK therefore can't be moved to another record or relabelled with another KEK id.
+  - `secret_id` (`[A-Za-z0-9._:-]`), `kind` (lower snake case) and `kek_id` (`[A-Za-z0-9._-]`) can't contain `|`, so the AAD is unambiguous.
+  - The row stores `ciphertext`, `nonce`, `wrapped_dek`, `dek_nonce` and `kek_id`.
+  - Tampering with any of these, or with the AAD fields, and using the wrong KEK all raise `SecretIntegrityError`.
+  - The sealed plaintext is the kind's fields as JSON (`file` bytes base64-encoded). Kind-specific metadata stays plain.
   - The library is pyca `cryptography` (`AESGCM`). There is no custom crypto and no plaintext fallback, unlike v0.
 - **KEK providers,** behind a pluggable `KeyProvider`:
   1. `systemd-creds`, TPM2-sealed when the host has a TPM;
-  2. an age identity file, owned by root with mode 0400, outside the DB volume;
-  3. an environment variable, **dev and test only**, which emits a warning in `/readyz`.
+  2. a key file outside the DB volume, owned by the harness's service user. It is refused if it is a symlink or if group or others have any permission bit (0400 is recommended, 0600 is accepted);
+  3. an environment variable (`HH_SECRETS_KEK`), **dev and test only**. It is refused when `HH_ENV=prod`, and `/readyz` reports `vault` as degraded.
+
+  Every provider reads the same **keyring format**: one `kek_id:base64key` entry per line (commas also separate entries, for the env variable), newest first. The first entry is the current KEK, and older entries stay until every DEK has been rewrapped. Keys must be exactly 32 bytes, and ids must be unique. Keys load once at startup, and a configured provider that is missing, insecure or malformed stops startup with an owner-safe message (R-25).
 
   The KEK is never stored in Postgres.
 - **Rotation:**
