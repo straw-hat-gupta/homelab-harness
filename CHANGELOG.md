@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added (database)
+- Postgres persistence for the core: an async SQLAlchemy engine (psycopg 3) with explicit pool limits and a statement timeout, configured by `HH_DATABASE_URL` and `HH_DATABASE_*`. The URL's password is registered with the redactor at startup.
+- Alembic migrations shipped inside the package, run with the new `homelab-harness-migrate` command (`upgrade`, `downgrade`, `current`, `check`, `revision`).
+- An append-only `audit_events` table. Triggers reject UPDATE, DELETE and TRUNCATE, and `seq` is a unique, database-assigned order (R-13). `AuditWriter.record()` validates and redacts each event before inserting it.
+- DBOS is launched at startup when a database is configured, with its system tables in the `dbos` schema. `/readyz` gains `database` and `dbos` checks.
+- `deploy/compose.yaml` adds `postgres` (17, with a volume and a healthcheck) and a one-shot `migrate` service. `HH_POSTGRES_PASSWORD` is required and has no default.
+- Database tests run against real Postgres via testcontainers, in CI too.
+
+### Added (Stage 1 skeleton)
+- A uv workspace with three packages: `homelab-harness` (core), `homelab-harness-sdk` (shared error types, risk tiers, retry classes) and `homelab-harness-cli` (`hh version`, `hh health`).
+- Core service:
+  - FastAPI app with `/healthz`, and a `/readyz` that aggregates subsystem checks as ok, degraded or fail;
+  - settings read only from `HH_*` environment variables, with no implicit `.env` loading;
+  - structured JSON logging, where every event is redacted of sensitive keys and of registered secret values in common encodings.
+- A container image that runs as non-root, with a read-only filesystem and all capabilities dropped. Also `deploy/compose.yaml`.
+- CI jobs for ruff, strict pyright, pytest with coverage, pip-audit, a Docker build plus health check, docs links and gitleaks. The GHCR release workflow is restored with SBOM and provenance, and Dependabot now covers uv and Docker.
+- `AGENTS.md` is rewritten as the code-level guide, and `docs/development.md` is added.
+
+### Changed
+- The GitHub repository is renamed to `straw-hat-gupta/homelab-harness`.
+
 ### Removed
 - **BREAKING:** the v0 Django/DRF/Celery backend (all apps, dependencies, Docker image, Compose files, and the release workflow) is removed from `main` ahead of a rewrite. It is preserved at tag `v0-django-final`; its docs, the 2026-10-30 audit, and its 2026-10-31 cross-check moved to `docs/archive/v0/`.
 

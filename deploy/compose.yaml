@@ -1,0 +1,70 @@
+# Single-host deployment. Stage 1 services land here incrementally:
+# Postgres (here), otel-collector + Grafana stack (observability PR), ntfy.
+#
+#   export HH_POSTGRES_PASSWORD="$(openssl rand -hex 24)"   # URL-safe; keep it somewhere safe
+#   docker compose -f deploy/compose.yaml up -d --build
+#   hh health --url http://127.0.0.1:8080
+name: homelab-harness
+
+x-harness-image: &harness-image
+  build:
+    context: ..
+    dockerfile: Dockerfile
+  image: ghcr.io/straw-hat-gupta/homelab-harness:edge
+  read_only: true
+  tmpfs:
+    - /tmp
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: harness
+      POSTGRES_DB: harness
+      # No default: compose refuses to start without a password.
+      POSTGRES_PASSWORD: ${HH_POSTGRES_PASSWORD:?set HH_POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Not published: only the harness reaches it, over the compose network.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U harness -d harness"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  # One-shot: applies Alembic migrations, then exits. The harness waits for it.
+  migrate:
+    <<: *harness-image
+    command: ["homelab-harness-migrate", "upgrade"]
+    restart: "no"
+    environment:
+      HH_ENV: ${HH_ENV:-prod}
+      HH_DATABASE_URL: postgresql://harness:${HH_POSTGRES_PASSWORD:?set HH_POSTGRES_PASSWORD}@postgres:5432/harness
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  harness:
+    <<: *harness-image
+    restart: unless-stopped
+    environment:
+      HH_ENV: ${HH_ENV:-prod}
+      HH_LOG_LEVEL: ${HH_LOG_LEVEL:-INFO}
+      HH_DATABASE_URL: postgresql://harness:${HH_POSTGRES_PASSWORD:?set HH_POSTGRES_PASSWORD}@postgres:5432/harness
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    # Bind to loopback by default; expose on the tailnet with `tailscale serve`.
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  pgdata:

@@ -7,40 +7,25 @@ CLAUDE.local.md
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
 *.so
-*.egg
 *.egg-info/
 dist/
 build/
-.eggs/
 
 # Virtual environments
 .venv/
-venv/
-env/
 
-# Environment
+# Environment and secrets (never committed; see docs/spec/secrets.md)
 .env
 .env.*
 !.env.example
+*.age
+*.kek
 
-# Django
-db.sqlite3
-*.sqlite3
-staticfiles/
-media/
-
-# Runtime state
-.chat_ctx/
-.pending_plans/
-
-# Testing
+# Testing and tooling caches
 .pytest_cache/
 .coverage
 htmlcov/
-.mypy_cache/
 .ruff_cache/
 
 # Logs
@@ -49,8 +34,3 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
-
-# Legacy MCP
-mcp_client/
-mcp_integration/
-mcp_server/

@@ -136,7 +136,7 @@ Daily value: the "two new drives into a ZFS pool" flow, plus deploying Docker st
 
 | # | Decision | Proposal | Needed by |
 |---|---|---|---|
-| D-1 | ~~Project and repo name~~ | **Decided 2026-11-01:** homelab-harness (`homelab_harness` packages, `hh` CLI). The GitHub repo rename is pending. | — |
+| D-1 | ~~Project and repo name~~ | **Decided 2026-11-01:** homelab-harness (`homelab_harness` packages, `hh` CLI). The repo was renamed on 2026-11-01. | — |
 | D-2 | ~~Owner auth~~ | **Decided 2026-11-01:** an embedded authorization server ([ADR-0007](adr/0007-owner-auth.md), accepted) | — |
 | D-3 | Proxmox node-admin token: minted per plan, or a short-lived token stored for a maintenance window ([proxmox.md §2.3](spec/capabilities/proxmox.md)) | Minted per plan by default; a window mode is available | Stage 3 |
 | D-4 | SSH: plain OpenSSH on the tailnet, or Tailscale SSH ([linux-docker.md](spec/capabilities/linux-docker.md)) | OpenSSH, with Tailscale ACLs as the network boundary | Stage 3 |

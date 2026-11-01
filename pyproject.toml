@@ -1,0 +1,69 @@
+[project]
+name = "homelab-harness-workspace"
+version = "0.0.0"
+description = "Workspace root for homelab-harness. Not published."
+requires-python = ">=3.13"
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/*", "cli"]
+
+[tool.uv.sources]
+homelab-harness = { workspace = true }
+homelab-harness-sdk = { workspace = true }
+homelab-harness-cli = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "homelab-harness",
+    "homelab-harness-sdk",
+    "homelab-harness-cli",
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6",
+    "httpx>=0.28",
+    "respx>=0.22",
+    "ruff>=0.8",
+    "pyright>=1.1.390",
+    "testcontainers[postgres]>=4.15",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+# Docs contain illustrative snippets; formatting them is not the linter's job.
+extend-exclude = ["docs", "*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "S", "ASYNC", "RUF", "PT", "DTZ", "T20", "ANN"]
+ignore = [
+    "ANN401",  # Any is sometimes the honest type at boundaries
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101", "ANN", "S105", "S106"]
+"scripts/**" = ["T20", "S603", "S607"]  # CLI scripts print and call git by design
+
+[tool.ruff.lint.isort]
+known-first-party = ["homelab_harness", "homelab_harness_sdk", "homelab_harness_cli"]
+
+[tool.pyright]
+include = ["packages", "cli"]
+exclude = ["**/tests/**", "**/.venv/**"]
+pythonVersion = "3.13"
+typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["packages", "cli"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = ["--strict-markers", "--import-mode=importlib"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["homelab_harness", "homelab_harness_sdk", "homelab_harness_cli"]
