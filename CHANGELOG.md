@@ -46,6 +46,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 - The GitHub repository is renamed to `straw-hat-gupta/homelab-harness`.
+- The container image is back on `python:3.13-slim`, the version CI tests. Dependabot now proposes only patch updates for the Python base image; minor and major upgrades move CI, the lock target and the image together in one deliberate PR.
 
 ### Removed
 - **BREAKING:** the v0 Django/DRF/Celery backend (all apps, dependencies, Docker image, Compose files, and the release workflow) is removed from `main` ahead of a rewrite. It is preserved at tag `v0-django-final`; its docs, the 2026-10-30 audit, and its 2026-10-31 cross-check moved to `docs/archive/v0/`.

@@ -13,3 +13,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # The image must run the Python version CI tests (requires-python, pyright,
+      # setup-python). Minor/major Python upgrades are a deliberate PR that moves
+      # CI, the lock target and the image together; patch updates stay automatic.
+      - dependency-name: python
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
