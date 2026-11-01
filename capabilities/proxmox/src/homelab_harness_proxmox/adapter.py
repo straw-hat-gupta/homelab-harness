@@ -309,7 +309,11 @@ class ProxmoxClient:
     def _transport_error(self, exc: httpx.TransportError, path: str) -> HarnessError:
         target = self._endpoint.host
         cause: BaseException | None = exc
-        while cause is not None:
+        seen: set[int] = set()
+        # Exception chains can be cyclic (an exception re-raised inside its own
+        # handler), so walk each link once.
+        while cause is not None and id(cause) not in seen:
+            seen.add(id(cause))
             if isinstance(cause, ssl.SSLCertVerificationError):
                 return TlsVerificationFailed(
                     f"the Proxmox node's certificate failed verification on GET {path}",

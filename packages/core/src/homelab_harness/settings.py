@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -47,6 +48,10 @@ class Settings(BaseSettings):
         database_connect_timeout_seconds: Limit on opening one connection.
         database_statement_timeout_ms: Server-side limit on any one statement,
             so a stuck query cannot hold a connection forever.
+        targets_file: TOML file listing targets per capability, with the path
+            of each credential's secret file. Interim: the vault replaces the
+            secret files (docs/spec/secrets.md). When unset, no targets are
+            registered and capability tools report that.
     """
 
     model_config = SettingsConfigDict(
@@ -66,6 +71,7 @@ class Settings(BaseSettings):
     database_pool_size: int = Field(default=5, ge=1, le=50)
     database_connect_timeout_seconds: int = Field(default=5, ge=1, le=60)
     database_statement_timeout_ms: int = Field(default=15_000, ge=100, le=600_000)
+    targets_file: Path | None = None
 
 
 @lru_cache(maxsize=1)

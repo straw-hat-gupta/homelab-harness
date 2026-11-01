@@ -19,7 +19,7 @@ homelab-harness-proxmox = { workspace = true }
 [dependency-groups]
 dev = [
     "homelab-harness",
-    "homelab-harness-sdk",
+    "homelab-harness-sdk[testing]",
     "homelab-harness-cli",
     "homelab-harness-proxmox",
     "pytest>=8",
@@ -49,6 +49,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S101", "ANN", "S105", "S106"]
 "scripts/**" = ["T20", "S603", "S607"]  # CLI scripts print and call git by design
+# The contract test kit is test code shipped in the SDK: it asserts by design.
+"packages/sdk/src/homelab_harness_sdk/testing.py" = ["S101", "PT017", "PT018"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["homelab_harness", "homelab_harness_sdk", "homelab_harness_cli", "homelab_harness_proxmox"]

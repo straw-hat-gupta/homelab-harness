@@ -1,5 +1,5 @@
 # Capability manifest (docs/spec/extending.md). Ships inside the package so core
-# can read it with importlib.resources once discovery lands.
+# reads it with importlib.resources (homelab_harness_sdk.Manifest.load).
 
 name = "proxmox"
 version = "0.1.0"
@@ -45,5 +45,24 @@ acl_paths = ["/nodes/<node>", "/storage"]
 risk_tiers = ["T3"]
 minted_per_plan = true
 
-# MCP tools are registered in a later PR; the read-only adapter has none yet.
+# MCP tools and the credential tier each reads with. The contract kit checks this
+# table against the @read_tool declarations in tools.py, both ways.
 [tools]
+"proxmox.cluster.list" = { credential = "read" }
+"proxmox.cluster.resources" = { credential = "read" }
+"proxmox.node.list" = { credential = "read" }
+"proxmox.node.get" = { credential = "read" }
+"proxmox.guest.list" = { credential = "read" }
+"proxmox.guest.get" = { credential = "read" }
+"proxmox.storage.list" = { credential = "read" }
+"proxmox.storage.status" = { credential = "read" }
+"proxmox.storage.content" = { credential = "read" }
+"proxmox.disk.list" = { credential = "read" }
+"proxmox.disk.smart" = { credential = "read" }
+"proxmox.network.list" = { credential = "read" }
+"proxmox.pool.list" = { credential = "read" }
+"proxmox.ha.status" = { credential = "read" }
+"proxmox.backup.jobs" = { credential = "read" }
+"proxmox.task.list" = { credential = "read" }
+"proxmox.task.get" = { credential = "read" }
+"proxmox.metrics.rrd" = { credential = "read" }

@@ -1,7 +1,7 @@
 [project]
 name = "homelab-harness-proxmox"
 version = "0.1.0"
-description = "Proxmox VE capability for homelab-harness: typed read-only adapter and token bootstrap."
+description = "Proxmox VE capability for homelab-harness: read-only adapter, MCP read tools, token bootstrap."
 requires-python = ">=3.13"
 license = "MIT"
 dependencies = [
@@ -10,6 +10,10 @@ dependencies = [
     "pydantic>=2.9",
     "structlog>=24.4",
 ]
+
+# Core discovers capabilities through this group; it never imports the package by name.
+[project.entry-points."homelab_harness.capabilities"]
+proxmox = "homelab_harness_proxmox.capability:CAPABILITY"
 
 [build-system]
 requires = ["hatchling>=1.25"]

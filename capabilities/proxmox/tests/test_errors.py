@@ -1,6 +1,8 @@
 """Error mapping: every failure class lands on the shared SDK types, and no body leaks."""
 
+import asyncio
 import secrets
+import threading
 from datetime import UTC, datetime
 
 import httpx
@@ -130,6 +132,32 @@ async def test_transport_errors_on_reads_are_target_unavailable(pve, pve_mock, e
     assert type(raised.value) is TargetUnavailable
     assert expected_text in raised.value.safe_message
     assert raised.value.retryable is True
+
+
+def test_cyclic_exception_chain_does_not_hang(pve, pve_mock):
+    # Regression: the contract kit's repeated failures produced a chain whose
+    # __context__ points back at itself, and the TLS-cause walk looped forever.
+    outer = httpx.ConnectError("refused")
+    inner = OSError("refused")
+    outer.__context__ = inner
+    inner.__context__ = outer
+    pve_mock.get("/version").mock(side_effect=outer)
+    # The walk is synchronous, so run the call on its own loop in a thread: a
+    # regression fails the join instead of hanging the suite.
+    errors = []
+
+    def call():
+        try:
+            asyncio.run(pve.version())
+        except TargetUnavailable as exc:
+            errors.append(exc)
+
+    worker = threading.Thread(target=call, daemon=True)
+    worker.start()
+    worker.join(timeout=5)
+    assert not worker.is_alive(), "mapping a cyclic exception chain did not terminate"
+    assert errors
+    assert "could not reach" in errors[0].safe_message
 
 
 @pytest.mark.parametrize(

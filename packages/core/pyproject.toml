@@ -15,11 +15,13 @@ dependencies = [
     "psycopg[binary]>=3.3,<4",
     "alembic>=1.20,<2",
     "dbos>=3.4,<4",
+    "mcp>=2.3,<3",
 ]
 
 [project.scripts]
 homelab-harness = "homelab_harness.server:main"
 homelab-harness-migrate = "homelab_harness.db.migrate:main"
+homelab-harness-token = "homelab_harness.mcp.token_cli:main"
 
 [build-system]
 requires = ["hatchling>=1.25"]
