@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added (database)
+- Postgres persistence for the core: an async SQLAlchemy engine (psycopg 3) with explicit pool limits and a statement timeout, configured by `HH_DATABASE_URL` and `HH_DATABASE_*`. The URL's password is registered with the redactor at startup.
+- Alembic migrations shipped inside the package, run with the new `homelab-harness-migrate` command (`upgrade`, `downgrade`, `current`, `check`, `revision`).
+- An append-only `audit_events` table. Triggers reject UPDATE, DELETE and TRUNCATE, and `seq` is a unique, database-assigned order (R-13). `AuditWriter.record()` validates and redacts each event before inserting it.
+- DBOS is launched at startup when a database is configured, with its system tables in the `dbos` schema. `/readyz` gains `database` and `dbos` checks.
+- `deploy/compose.yaml` adds `postgres` (17, with a volume and a healthcheck) and a one-shot `migrate` service. `HH_POSTGRES_PASSWORD` is required and has no default.
+- Database tests run against real Postgres via testcontainers, in CI too.
+
 ### Added (Stage 1 skeleton)
 - A uv workspace with three packages: `homelab-harness` (core), `homelab-harness-sdk` (shared error types, risk tiers, retry classes) and `homelab-harness-cli` (`hh version`, `hh health`).
 - Core service:

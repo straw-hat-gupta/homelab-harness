@@ -21,9 +21,9 @@ These requirements come from three sources:
 | R-08 | Approval is a deterministic owner action bound to a plan hash. No model classification decides it. | x-check 3 | |
 | R-09 | Plans are fully validated (typed parameters, references and preflight) before any step runs. An invalid plan has zero side effects. | v0 #6, x-check 2 | |
 | R-10 | Apply-time preflight detects drift. A stale plan is cancelled, not partly applied. | new (infra) | |
-| R-11 | Durable jobs resume after a crash at any step without duplicating a completed external call. | v0 #7 | |
+| R-11 | Durable jobs resume after a crash at any step without duplicating a completed external call. | v0 #7 | Partial: `test_dbos.py::test_rerunning_a_workflow_id_returns_the_recorded_result_without_reexecuting`, `::test_resuming_after_a_step_reuses_completed_steps` (DBOS replay of recorded steps; the job engine and crash tests come in Stage 2) |
 | R-12 | Scheduled and event-triggered work is claimed exactly once and recovered if dispatch was interrupted. | v0 #7 | |
-| R-13 | Sequences (audit event order, job steps) are unique per parent, enforced by constraint. | v0 #8 | |
+| R-13 | Sequences (audit event order, job steps) are unique per parent, enforced by constraint. | v0 #8 | Audit: `test_audit.py::test_seq_is_unique_and_cannot_be_chosen_by_the_caller` (`GENERATED ALWAYS` identity plus `uq_audit_events_seq`). Job steps: Stage 2 |
 | R-14 | A transient target failure never permanently disables a credential. Only a definitive rejection (401 with invalid token, revoked) marks it unusable, and the owner is notified. | v0 #9 | |
 | R-15 | Credential use is serialized where the target requires it (ticket refresh). | v0 #9 | |
 | R-16 | No secrets or target content in logs, traces, errors or audit summaries (canary test per capability). | v0 #10, x-check 5, 6 | |

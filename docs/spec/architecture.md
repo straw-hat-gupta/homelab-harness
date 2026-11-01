@@ -69,6 +69,8 @@ packages/
     jobs/                #   DBOS workflows: apply, poll external task, verify, outcome
     inventory/           #   read model + sync workflows
     audit/               #   append-only audit writer + queries
+    db/                  #   async engine, sessions, declarative base, migrate command
+    migrations/          #   Alembic scripts (shipped in the wheel)
     secrets/             #   envelope-encrypted vault, grants, brokers (ssh-sign, egress), intake — see secrets.md
     events/              #   ingest, schedules, reminders, notification routing
     telemetry/           #   OTel setup, redaction, usage ingest
@@ -143,7 +145,7 @@ Key properties:
 | `approvals` | Decision per plan | unique `plan_id`; state machine pending → approved, rejected or expired, then claimed; `select_for_update` on transitions |
 | `jobs` | Mirrors the DBOS workflow status for querying | `plan_id` unique; `outcome` |
 | `job_steps` | Step records with external IDs (UPIDs, command IDs) | unique `(job_id, step_no)` |
-| `audit_events` | Append-only log | no UPDATE or DELETE grants for the app role |
+| `audit_events` | Append-only log: `kind`, `actor` (`owner`, `system` or `client:<id>`), `plan_id`, `job_id`, `target`, and `data` (identifiers and counts only) | `seq` is a `GENERATED ALWAYS` identity with a unique constraint; triggers reject UPDATE, DELETE and TRUNCATE; the app role should also lack those grants |
 | `events` | Ingested target events | dedupe key unique |
 | `reminders` | Owner reminders, delivered through DBOS durable sleep | — |
 | `usage_samples` | Client usage telemetry, aggregated | — |
