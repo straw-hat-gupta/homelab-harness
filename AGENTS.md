@@ -21,6 +21,7 @@ uv run pytest packages/core -k readyz     # a subset
 uv run ruff check . && uv run ruff format --check .
 uv run pyright                            # strict type check
 uv run homelab-harness                    # run the server (HH_* env vars; see settings.py)
+uv run homelab-harness-migrate upgrade    # apply migrations (needs HH_DATABASE_URL)
 uv run hh health                          # CLI against a running harness
 docker compose -f deploy/compose.yaml up -d --build
 python scripts/check_links.py             # docs links
@@ -77,7 +78,7 @@ See [architecture.md](docs/spec/architecture.md) for the full target layout.
 
 - **Every behavior change ships with tests:** the success path plus the failure modes that matter (auth, validation, 401/403/404/409/429/5xx, timeouts, ambiguity, duplicates, time-zone edges).
 - **No test calls a real target.** Mock at the HTTP boundary (`respx`), or use recorded, scrubbed fixtures. Live runs against a nested Proxmox are a separate, manual suite.
-- **Pure logic** gets plain pytest. **Services** test against real Postgres (testcontainers) once the database lands. Never mock the persistence boundary (R-01).
+- **Pure logic** gets plain pytest. **Services** test against real Postgres, using the testcontainers fixtures in `packages/core/tests/conftest.py`. Never mock the persistence boundary (R-01).
 - **Redaction:** a capability's tests include the canary-secret check.
 - **Determinism:** freeze time for anything time-dependent. Tests must pass in any order.
 - **Don't game the suite.** Never skip, weaken or delete a failing test to get green. Fix the cause, or explain in the PR why the test was wrong.

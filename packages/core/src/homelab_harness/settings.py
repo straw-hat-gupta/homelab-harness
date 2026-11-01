@@ -10,7 +10,7 @@ from __future__ import annotations
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,6 +39,14 @@ class Settings(BaseSettings):
         log_level: Minimum log level name.
         log_format: JSON or console rendering.
         service_name: Name reported in logs and telemetry.
+        database_url: Postgres URL (``postgresql://user:password@host:5432/db``).
+            Holds a password, so it is a ``SecretStr`` and is never logged. When
+            unset, the harness runs without a database, DBOS or audit log.
+        database_pool_size: Connections kept open by the app's engine. DBOS
+            keeps its own pool of the same size for its system tables.
+        database_connect_timeout_seconds: Limit on opening one connection.
+        database_statement_timeout_ms: Server-side limit on any one statement,
+            so a stuck query cannot hold a connection forever.
     """
 
     model_config = SettingsConfigDict(
@@ -54,6 +62,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: LogFormat = LogFormat.JSON
     service_name: str = "homelab-harness"
+    database_url: SecretStr | None = None
+    database_pool_size: int = Field(default=5, ge=1, le=50)
+    database_connect_timeout_seconds: int = Field(default=5, ge=1, le=60)
+    database_statement_timeout_ms: int = Field(default=15_000, ge=100, le=600_000)
 
 
 @lru_cache(maxsize=1)

@@ -27,6 +27,7 @@ dev = [
     "respx>=0.22",
     "ruff>=0.8",
     "pyright>=1.1.390",
+    "testcontainers[postgres]>=4.15",
 ]
 
 [tool.ruff]
