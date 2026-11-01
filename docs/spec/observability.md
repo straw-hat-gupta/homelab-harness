@@ -69,9 +69,31 @@ all clients ──MCP calls──► harness audit (per client_id)
 ```
 
 - `usage_samples` stores the latest rate-limit snapshot per client and window, as used percentage plus `resets_at`. Token and cost counters stay in Prometheus.
-- `hh usage` shows a live table: client, 5-hour window percentage, reset time, weekly percentage, today's tokens and estimated cost, and today's harness tool calls. The UI widget comes after v1 ([ui-vision.md](ui-vision.md)).
+- `hh usage` shows a live table: client, 5-hour window percentage, reset time, weekly percentage, today's tokens and estimated cost, and today's harness tool calls. The UI widget arrives in UI-5, Stage 6 ([ui.md](ui.md#live-subscription-usage-ui-5)).
 - Web clients (claude.ai, ChatGPT) show harness tool calls only, labelled "quota not reported by vendor".
 - Cost figures from Claude Code are list-price estimates. Label them that way; they are not bills.
+
+## Failure attribution
+
+When something goes wrong, the owner needs to know **who was wrong: the agent, the recipe, or the target**. Every job therefore records:
+- the client and session;
+- the plan;
+- `recipe@version`;
+- the inputs as resolved;
+- each step's result and the external task IDs;
+- verification.
+
+On failure, a deterministic classifier assigns one of these:
+
+| Class | Meaning | Typical evidence | Who fixes it |
+|---|---|---|---|
+| `agent.invalid_request` | The agent asked for something invalid or unsafe | Preflight refused (wrong disk, missing template, stale plan), input validation failed, or the owner rejected the plan | Steering, a runbook or a skill, or the agent's own prompt |
+| `agent.wrong_intent` | The plan ran as specified, but verification shows it didn't achieve what the request asked | Verification failed on a goal assertion | Steering, recipe docs, or the request was ambiguous |
+| `recipe.bug` | Valid inputs and a healthy target, yet a step failed or verification contradicts the plan | Step exception outside the mapped error classes, `UnexpectedResponse`, a verification mismatch on recipe-owned assertions | Recipe code; the trace names the version |
+| `target.error` | The target refused or failed | Mapped `AuthRejected`, `PermissionDenied`, `Conflict` or `TargetUnavailable`, or a Proxmox task `exitstatus` error | The lab, credentials, or a retry |
+| `uncertain` | Outcome unknown | `AmbiguousOutcome` | The owner checks. Never auto-retried. |
+
+The classification goes on the job, on its span (`harness.failure.class`) and in a metric (`harness_job_failures_total{class,recipe,version,client}`). A Grafana panel shows the failure classes per recipe version and per client. A rising `recipe.bug` rate after a release points at the code, and a rising `agent.*` rate points at steering.
 
 ## Health and readiness
 

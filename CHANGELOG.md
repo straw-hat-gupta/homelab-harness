@@ -15,6 +15,20 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Changed
 - The app enters its database lifespan before the MCP transport, so a startup error surfaces as itself rather than inside an exception group.
 
+### Changed (specification re-scope)
+- The harness's goal is now the same work as a plain agent with a shell, with far fewer tokens and no discovery. It also replaces the Proxmox web UI. Recorded in ADR-0010 and ADR-0011.
+- New specs:
+  - `lab-state.md`: deterministic lab model, `lab://` documents, Git mirror, centralized logs and `logs.query`.
+  - `recipes.md`: typed, composable, agent-reusable operations, including script recipes.
+  - `catalog.md`: data sources, widget templates, and reuse-before-create with anti-bloat checks.
+  - `onboarding.md`: `hh init` adopts an existing lab, plus the lab profile.
+  - `ui.md`: the v1 UI in increments UI-1 to UI-5, built on extension registries. It replaces `ui-vision.md`.
+- Updated docs:
+  - vision, architecture, steering (lab state first, recipes first, catalog first) and extending (extension types);
+  - failure attribution in observability, and a token-efficiency eval in testing;
+  - reliability requirements R-38 to R-46, the glossary, and AGENTS.md (reuse-before-create);
+  - the roadmap, re-ordered so the lab state and UI come in Stage 2.
+
 ### Added (MCP server)
 - An MCP server at `/mcp` on the harness app: streamable HTTP, stateless, JSON responses, built on the official MCP Python SDK (`mcp` 2.3). It serves protocol 2026-07-28 and the earlier handshake versions. Everything below is **mocked against Proxmox; not verified live** against a PVE node or against Claude Code or Codex. The SDK's own client was run against a local server.
 - 18 Proxmox read tools (`proxmox.cluster.list`, `.cluster.resources`, `.node.list`, `.node.get`, `.guest.list`, `.guest.get`, `.storage.list`, `.storage.status`, `.storage.content`, `.disk.list`, `.disk.smart`, `.network.list`, `.pool.list`, `.ha.status`, `.backup.jobs`, `.task.list`, `.task.get`, `.metrics.rrd`). Each has JSON Schemas and `readOnlyHint`/`idempotentHint`, and returns structured content with `as_of` plus a text rendering. Target-sourced text sits in `untrusted` envelopes, and `_meta` flags it. Guest config is masked: passwords, tokens, keys, `args`, `hookscript` and `cicustom` show as `[MASKED]`, and SSH keys only as fingerprints.

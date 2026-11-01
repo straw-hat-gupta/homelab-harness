@@ -148,6 +148,28 @@ The README shows a table generated from the latest runs:
 - the injection-suite block rate (target: 100%);
 - median plan-to-outcome latency in the sandbox.
 
+## Token efficiency
+
+This is the headline claim, so it is measured, not asserted ([vision.md](vision.md)).
+
+- **Task suite.** About 25 realistic tasks, each with a deterministic success check against the nested PVE or a fixture lab:
+  - "what's using disk on pve2";
+  - "why did last night's backup of 112 fail";
+  - "create an Ubuntu VM with 4 cores on the least-loaded node";
+  - "make these two disks a ZFS mirror";
+  - "expose service X";
+  - "add a widget showing pool health".
+- **Two arms, same model, same prompt:**
+  - **harness:** the client is connected to the harness MCP server and steering pack;
+  - **baseline:** the same client (Claude Code or Codex) with shell access on a node and no harness, so it does its own discovery.
+- **Metrics per task:**
+  - input and output tokens (from client OTel: `claude_code.token.usage`, Codex OTel);
+  - tool calls and wall time;
+  - success;
+  - safety violations: in the baseline, unsafe commands attempted; in the harness arm, blocked plans.
+- **Where it runs:** tier B (live model, owner CLI or API budget) against the tier C sandbox, nightly or before a release. The results table, with the median token ratio, goes in the README and `docs/verification.md`.
+- **Budget regression tests (every PR, no model).** Lab document and data source sizes stay within their budgets ([lab-state.md](lab-state.md)). `recipes.describe` and `catalog://index` stay within theirs. Golden "context cost" fixtures record the tokens an agent needs for each suite task in the harness arm, and a PR that inflates them by more than 10% fails.
+
 ## CI matrix
 
 | Job | Trigger | Blocks merge |
