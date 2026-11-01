@@ -1,0 +1,76 @@
+{
+  "data": [
+    {
+      "id": "qemu/101",
+      "type": "qemu",
+      "vmid": 101,
+      "name": "web-01",
+      "node": "pve1",
+      "status": "running",
+      "pool": "agent-managed",
+      "tags": "harness;harness-plan-7f3c",
+      "template": 0,
+      "cpu": 0.0312,
+      "maxcpu": 2,
+      "mem": 1073741824,
+      "maxmem": 2147483648,
+      "disk": 0,
+      "maxdisk": 34359738368,
+      "uptime": 86400,
+      "hastate": "started",
+      "netin": 1234,
+      "netout": 5678,
+      "diskread": 0,
+      "diskwrite": 0
+    },
+    {
+      "id": "lxc/200",
+      "type": "lxc",
+      "vmid": 200,
+      "name": "dns",
+      "node": "pve2",
+      "status": "stopped",
+      "template": 0,
+      "maxcpu": 1,
+      "maxmem": 536870912,
+      "maxdisk": 8589934592,
+      "uptime": 0,
+      "lock": "backup"
+    },
+    {
+      "id": "qemu/9000",
+      "type": "qemu",
+      "vmid": 9000,
+      "name": "debian-13-tpl",
+      "node": "pve1",
+      "status": "stopped",
+      "template": 1
+    },
+    {
+      "id": "node/pve1",
+      "type": "node",
+      "node": "pve1",
+      "status": "online",
+      "cpu": 0.08,
+      "maxcpu": 16,
+      "mem": 17179869184,
+      "maxmem": 68719476736,
+      "disk": 10737418240,
+      "maxdisk": 107374182400,
+      "uptime": 1209600,
+      "level": ""
+    },
+    {
+      "id": "storage/pve1/local-zfs",
+      "type": "storage",
+      "node": "pve1",
+      "storage": "local-zfs",
+      "status": "available",
+      "plugintype": "zfspool",
+      "content": "images,rootdir",
+      "shared": 0,
+      "disk": 53687091200,
+      "maxdisk": 1000204886016
+    }
+  ]
+}

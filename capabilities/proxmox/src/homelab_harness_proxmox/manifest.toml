@@ -1,0 +1,49 @@
+# Capability manifest (docs/spec/extending.md). Ships inside the package so core
+# can read it with importlib.resources once discovery lands.
+
+name = "proxmox"
+version = "0.1.0"
+description = "Proxmox VE clusters: inventory, metrics, tasks; plans and executors later."
+
+[targets]
+kind = "proxmox-ve"
+# The adapter refuses to register a cluster below this version (§1). 9.0-9.1
+# work with a warning: their privilege set differs from what bootstrap targets.
+min_version = "9.0"
+recommended_version = "9.2"
+
+# Credential tiers (§2.2). Each is a privilege-separated token of harness@pve.
+# Scopes are PVE ACL paths; <...> placeholders are filled per cluster by bootstrap.
+[credentials.read]
+token = "harness@pve!read"
+roles = ["PVEAuditor"]
+acl_paths = ["/"]
+risk_tiers = ["T0"]
+
+[credentials.guest-ops]
+token = "harness@pve!guest-ops"
+roles = ["HarnessGuestOps"]
+acl_paths = ["/pool/agent-managed", "/storage/<backup storage>"]
+risk_tiers = ["T1", "T2"]
+
+[credentials.provision]
+token = "harness@pve!provision"
+roles = ["HarnessProvision", "HarnessTemplateUser"]
+acl_paths = [
+    "/pool/agent-managed",
+    "/storage/<guest storage>",
+    "/sdn/zones/localnetwork",
+    "/vms/<template id>",
+]
+risk_tiers = ["T1", "T2"]
+
+[credentials.node-admin]
+# Never stored by bootstrap: minted by the owner per approved T3 plan (§2.3).
+token = "harness@pve!na-<plan id>"
+roles = ["HarnessNodeAdmin"]
+acl_paths = ["/nodes/<node>", "/storage"]
+risk_tiers = ["T3"]
+minted_per_plan = true
+
+# MCP tools are registered in a later PR; the read-only adapter has none yet.
+[tools]

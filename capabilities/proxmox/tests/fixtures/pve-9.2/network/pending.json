@@ -1,0 +1,17 @@
+{
+  "data": [
+    {
+      "iface": "vmbr1",
+      "type": "bridge",
+      "active": 0,
+      "autostart": 1,
+      "method": "manual",
+      "method6": "manual",
+      "bridge_ports": "enp2s0",
+      "families": [
+        "inet"
+      ]
+    }
+  ],
+  "changes": "--- /etc/network/interfaces\n+++ /etc/network/interfaces.new\n@@ -10,0 +11,5 @@\n+auto vmbr1\n+iface vmbr1 inet manual\n"
+}

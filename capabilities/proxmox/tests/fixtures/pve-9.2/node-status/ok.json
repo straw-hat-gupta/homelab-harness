@@ -1,0 +1,48 @@
+{
+  "data": {
+    "uptime": 1209600,
+    "cpu": 0.08,
+    "wait": 0.001,
+    "cpuinfo": {
+      "model": "AMD Ryzen 9 7950X 16-Core Processor",
+      "cpus": 32,
+      "cores": 16,
+      "sockets": 1,
+      "mhz": "4500.000",
+      "hvm": "1",
+      "flags": "fpu vme"
+    },
+    "memory": {
+      "total": 68719476736,
+      "used": 17179869184,
+      "free": 51539607552
+    },
+    "swap": {
+      "total": 8589934592,
+      "used": 0,
+      "free": 8589934592
+    },
+    "rootfs": {
+      "total": 107374182400,
+      "used": 10737418240,
+      "free": 96636764160,
+      "avail": 91268055040
+    },
+    "loadavg": [
+      "0.42",
+      "0.38",
+      "0.35"
+    ],
+    "kversion": "Linux 7.0.4-1-pve #1 SMP PREEMPT_DYNAMIC PMX 7.0.4-1",
+    "pveversion": "pve-manager/9.2.1/a1b2c3d4",
+    "current-kernel": {
+      "sysname": "Linux",
+      "release": "7.0.4-1-pve",
+      "machine": "x86_64"
+    },
+    "boot-info": {
+      "mode": "efi",
+      "secureboot": 1
+    }
+  }
+}
