@@ -1,6 +1,6 @@
 # Secrets
 
-> **Status: specification, partly implemented.** Implemented so far: the envelope encryption, the KEK providers and the kind models in `homelab_harness.secrets` (no persistence, CLI, grants or use modes yet). It was researched on 2026-11-01, and anything marked "(unverified)" came from secondary sources. This document extends [safety-model.md](safety-model.md) S9 and replaces the "vault" sketch in [architecture.md](architecture.md). Terms follow the [glossary](../../GLOSSARY.md).
+> **Status: specification, partly implemented.** Implemented so far (Stage 1): the envelope encryption, the KEK providers and the kind models; the vault's Postgres storage with versions, revocation, crypto-shred delete and KEK rewrap; the owner API under `/api` with `hh secret add|list|show|rotate|revoke|delete|generate` and `hh vault rotate-kek` (see [development.md](../development.md#vault)); and in-harness resolution of `secret://` handles for the interim targets file. Not built yet: grants, use modes beyond that startup resolution, `reveal`, the intake page, `secrets.request`, imports and reminders. It was researched on 2026-11-01, and anything marked "(unverified)" came from secondary sources. This document extends [safety-model.md](safety-model.md) S9 and replaces the "vault" sketch in [architecture.md](architecture.md). Terms follow the [glossary](../../GLOSSARY.md).
 
 ## Goal
 
@@ -79,14 +79,14 @@ approval = "per-session"
 Rules:
 - **Creating, widening or extending a grant is an owner action** (CLI, or the UI later) at T2. Granting the `env` mode, or any grant to `client = "*"`, is T3. Models can't create grants. They can *request* one, which produces a plan for the owner (see intake below).
 - Grants are checked on every use, and every use writes `audit_events(kind="secret.used", secret_id, grant_id, client_id, mode, target, plan_id or job_id)`. No value or size is recorded.
-- `hh secret revoke <name>` disables every grant at once. `hh secret delete` crypto-shreds the secret by destroying its DEK.
+- `hh secret revoke <name>` disables every grant at once. *Built:* until grants exist, a revoked secret cannot be resolved at all until it is rotated. `hh secret delete` crypto-shreds the secret: every version's ciphertext and wrapped DEK is deleted, after a typed name confirmation that the API checks too.
 
 ## Adding secrets (owner intake)
 
 | Path | When to use it | How it works |
 |---|---|---|
-| **CLI** | Day to day, from the terminal | `hh secret add <name> --kind api_token` prompts with hidden input and then asks for metadata. Variants: `--from-file ~/.kube/config`, `--stdin` (for piping from another manager), `--from-op op://Vault/Item/field`. |
-| **Generate in place** | SSH keys, random passwords | `hh secret generate ssh_key docker-01-deploy` creates an ed25519 key inside the harness and prints **only the public key** plus the `authorized_keys` line, with an optional `from=` restriction. The private key is never shown to anyone. |
+| **CLI** | Day to day, from the terminal | `hh secret add <name> --kind api_token` prompts with hidden input (asked twice); metadata comes from `--meta KEY=VALUE` or `--meta-json`. Variants: `--from-file ~/.kube/config`, `--stdin` (for piping from another manager), `--from-op op://Vault/Item/field` (not built). A value given on the command line is refused. *Built*, over the owner API (`/api/secrets`, owner-role token). |
+| **Generate in place** | SSH keys, random passwords | `hh secret generate ssh_key docker-01-deploy` creates an ed25519 key inside the harness and prints **only the public key** plus the `authorized_keys` line, with an optional `from=` restriction. The private key is never shown to anyone. *Built* for `ssh_key` (ahead of Stage 3); random passwords are not. |
 | **Guided kinds** | Proxmox, Cloudflare and GitHub tokens | `hh proxmox bootstrap` prints the `pveum` commands and then opens a hidden prompt for the resulting token secret. The Cloudflare and GitHub helpers name the exact permission set to create. |
 | **Intake page** | From a phone, or when an agent asks | Served by the harness on the tailnet (`/secrets/new`). It requires an owner passkey session and offers a form per kind. Agents never get a link that bypasses login: the page checks that the session belongs to the owner. This one page is the only web surface in v1. |
 | **MCP request** (URL-mode elicitation) | An agent needs a credential that doesn't exist | The agent calls `secrets.request(name, kind, purpose, suggested_scope)`. The harness answers with MCP **URL-mode elicitation** pointing at the intake page, prefilled with the request, plus an ntfy notification: "Claude Code asks for a Cloudflare token for DNS on example.com". The owner enters the value in the browser, so it never passes through the model or the MCP client ([spec](https://modelcontextprotocol.io/specification/2026-07-28/client/elicitation)). The agent then sees `secrets.list` show the new handle, plus a grant if the owner approved one. Clients without URL-mode support (unverified per client) receive the same link as text. |
@@ -145,7 +145,7 @@ What agents can see: `secrets.list` and `secrets.describe` return names, kinds, 
 
 | Stage | Secrets work |
 |---|---|
-| 1 | Vault (envelope encryption, KEK providers, rotation); kinds `api_token`, `proxmox_token`, `password`, `kv`; CLI `add`, `list`, `rotate`, `revoke`; `broker` mode for capabilities; redaction scanner |
+| 1 | Vault (envelope encryption, KEK providers, rotation); kinds `api_token`, `proxmox_token`, `password`, `kv`; CLI `add`, `list`, `rotate`, `revoke`; `broker` mode for capabilities; redaction scanner. **Built:** all of it except `broker` for capabilities, which so far is the targets file's `secret://` handles resolved at startup. Also built early: every kind except `totp_seed`, `show`, `delete`, `generate ssh_key` and `hh vault rotate-kek`. |
 | 2 | Grants and audit, the intake page, and `secrets.request` with URL-mode elicitation plus the ntfy fallback |
 | 3 | `ssh_key` with `generate`, in-process `ssh-sign` for the linux and docker capabilities, `hh ssh-agent` with destination checks, and `file-mount` |
 | 5 | `http-inject` egress routes (GitHub, Cloudflare); imports from 1Password and SOPS |

@@ -49,8 +49,10 @@ Settings come only from `HH_*` environment variables (`packages/core/src/homelab
 | `HH_OTEL_EXPORTER_OTLP_ENDPOINT` | unset | OTLP/HTTP base URL, e.g. `http://otel-collector:4318`. Unset or empty means telemetry off: no exporters, no instrumentation. See [Observability](#observability). |
 | `HH_OTEL_EXPORT_TIMEOUT_SECONDS` | `5` | Limit on one export request |
 | `HH_OTEL_METRIC_EXPORT_INTERVAL_SECONDS` | `15` | How often metrics are pushed |
-| `HH_TARGETS_FILE` | unset | **Interim** TOML list of targets per capability, with each credential's secret file. See [MCP server](#mcp-server). Unset means no targets: tools answer "no proxmox target is registered". An invalid file stops startup. |
+| `HH_TARGETS_FILE` | unset | **Interim** TOML list of targets per capability, with each credential's vault handle or secret file. See [MCP server](#mcp-server). Unset means no targets: tools answer "no proxmox target is registered". An invalid file, or a handle naming a missing or revoked secret, stops startup. |
 | `HH_CLI_URL` | `http://127.0.0.1:8080` | Where `hh` sends requests |
+| `HH_CLI_TOKEN_FILE` | unset | File holding only the owner token `hh` sends to `/api` (chmod 0600; looser modes are refused). See [Vault](#vault). |
+| `HH_CLI_TOKEN` | unset | The owner token itself, when no file is set. Child processes inherit it, so prefer the file. |
 
 ```bash
 HH_ENV=dev HH_LOG_FORMAT=console uv run homelab-harness
@@ -102,11 +104,50 @@ With systemd, store the keyring as an encrypted credential (TPM2-sealed when the
 
 Losing the KEK loses every secret: back the keyring up separately from the database.
 
+## Vault
+
+With both `HH_DATABASE_URL` and `HH_SECRETS_KEK_PROVIDER` set, the harness stores secrets in Postgres (`secrets` for plain metadata, `secret_versions` for the sealed values; migration `0003`) and serves the owner API under `/api/secrets` and `/api/vault`. `hh` is its client. No route returns a value, a length or a hash, and there is no reveal command yet.
+
+**Owner token.** The API accepts only tokens created with the `owner` role. Owner tokens are refused at `/mcp`, and MCP tokens are refused at `/api`, so a token pasted into an AI client can never manage the vault (migration `0004` adds the role; existing tokens become `mcp`).
+
+```bash
+(umask 077; uv run homelab-harness-token create --client hh --role owner > ~/.config/hh-token)
+export HH_CLI_TOKEN_FILE=~/.config/hh-token HH_CLI_URL=http://harness.tailnet:8080
+```
+
+**Commands.** Values come from a hidden prompt (asked twice), `--stdin` or `--from-file`. `hh` refuses a value on the command line, where shell history and `ps` would keep it.
+
+```bash
+hh secret add pve-home-read --kind proxmox_token --meta 'token_id=harness@pve!read'   # hidden prompt
+op read op://Lab/pve/token | hh secret add pve-home-read --kind proxmox_token --stdin --meta 'token_id=harness@pve!read'
+hh secret add kube --kind file --from-file ~/.kube/config            # filename from the path; size derived
+hh secret add app-env --kind kv --key API_KEY --key DB_PASSWORD      # one hidden prompt per key
+hh secret add app-env --kind kv --stdin < app.env                    # or KEY=VALUE lines
+hh secret add gh --kind github_token --meta-json '{"repos": ["me/vault"], "expires_at": "2027-01-01T00:00:00Z"}'
+hh secret generate ssh_key docker-01-deploy --comment deploy --from 10.0.0.5   # prints the public key only
+hh secret list
+hh secret show pve-home-read             # metadata and versions, never the value
+hh secret rotate pve-home-read           # new version; older versions are kept
+hh secret rotate docker-01-deploy --generate
+hh secret revoke pve-home-read           # unusable until rotated
+hh secret delete pve-home-read           # asks you to type the name; --confirm NAME for scripts
+hh vault rotate-kek                      # rewrap every data key under the current KEK
+```
+
+Kinds and their rules are in [secrets.md](spec/secrets.md#secret-kinds). Metadata is plain text: it is shown to the owner and, later, to agents, so never put a value in it. `ssh_key` metadata (public key, fingerprint), `kv` key names and `file` sizes are derived from the value. Every operation writes an audit event (`secret.created`, `.rotated`, `.revoked`, `.deleted`, `.used`, `vault.kek_rotated`) with names and ids only.
+
+**Rotating the KEK.**
+1. Put the new entry first in the keyring and keep the old one after it; restart the harness. `/readyz` now reports `N version(s) on an older KEK`.
+2. Run `hh vault rotate-kek`. Each version is rewrapped in its own transaction, so an interrupted run can simply be repeated; a repeat reports `0 rewrapped`. It exits 1 if any version failed.
+3. When it reports `0 failed`, remove the old entry and restart.
+
+**Deleting** destroys every version's ciphertext and wrapped data key (crypto-shred). Copies of those rows can survive in Postgres's WAL, in dead tuples until vacuum, and in backups; they stay unreadable once the KEK that wrapped them is rotated out and destroyed.
+
 ## MCP server
 
 The harness serves MCP at `/mcp` (streamable HTTP, stateless, JSON responses). It speaks the 2026-07-28 protocol and the earlier handshake versions. It needs `HH_DATABASE_URL`, because client tokens and the audit log live in Postgres. Without a database every request gets 401.
 
-> **Interim, tailnet only.** Until the OAuth authorization server lands (ADR-0007), clients authenticate with long-lived owner bearer tokens, and targets come from a file rather than the vault. Do not expose `/mcp` publicly with this setup.
+> **Interim, tailnet only.** Until the OAuth authorization server lands (ADR-0007), clients authenticate with long-lived owner bearer tokens, and targets are listed in a file (their credentials can come from the vault). Do not expose `/mcp` or `/api` publicly with this setup.
 
 **Targets.** List clusters in a TOML file and point `HH_TARGETS_FILE` at it:
 
@@ -119,10 +160,15 @@ tls = { kind = "ca_bundle", path = "/etc/harness/pve-home-ca.pem" }
 
 [proxmox.credentials.read]
 token_id = "harness@pve!read"
-token_secret_file = "/run/secrets/pve-home-read"   # only the secret; chmod 0400
+token_secret = "secret://pve-home-read"            # a vault secret (see Vault), or:
+# token_secret_file = "/run/secrets/pve-home-read" # only the secret; chmod 0400
 ```
 
-Each secret file must not be readable by group or others, or startup refuses it. It is read once, and its value is registered with the redactor. `/readyz` gets one check per target, `proxmox:<name>`, which reports `degraded` (never `fail`) when the cluster cannot be read.
+Each credential sets exactly one of `token_secret` and `token_secret_file`.
+- `token_secret` names a vault secret. It needs the vault (`HH_DATABASE_URL` and `HH_SECRETS_KEK_PROVIDER`), or startup refuses the file. The handle is resolved once at startup, after the database opens, and the use is audited as `secret.used` with consumer `targets:<capability>/<target>/<tier>`. The secret must exist and not be revoked, and must be a one-value kind (`proxmox_token`, `api_token`, `password`, …). For a `proxmox_token` its `token_id` must equal the file's. Any failure stops startup. After `hh secret rotate`, restart the harness to pick up the new version.
+- Each secret file must not be readable by group or others, or startup refuses it. It is read once.
+
+Either way, the value is registered with the redactor. `/readyz` gets one check per target, `proxmox:<name>`, which reports `degraded` (never `fail`) when the cluster cannot be read.
 
 **Client tokens.** One token per client, so audit tells them apart and each can be revoked alone:
 

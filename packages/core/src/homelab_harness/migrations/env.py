@@ -14,10 +14,11 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 import homelab_harness.audit.models as audit_models
 import homelab_harness.mcp.clients as mcp_client_models
+import homelab_harness.secrets.models as secret_models
 from homelab_harness.db.base import Base
 
 # Importing a model module registers its tables on Base.metadata.
-MODEL_MODULES = (audit_models, mcp_client_models)
+MODEL_MODULES = (audit_models, mcp_client_models, secret_models)
 
 config = context.config
 target_metadata = Base.metadata

@@ -6,7 +6,7 @@
 > - the read-only adapter (§3): the endpoints listed under "Adapter coverage" in §4.1, TLS trust per §2.1, the error mapping, and the UPID parser;
 > - the bootstrap renderer (§2.4) as a pure function, `render_bootstrap_script()`. The `hh proxmox bootstrap` CLI command, `hh proxmox verify`, and the token vault are not built yet.
 > - the read tools (§4.1) marked *implemented* in the table, served over MCP. Every tool carries `readOnlyHint`, `idempotentHint` and `openWorldHint: false`, and returns `as_of`. Target-sourced text sits in `untrusted` envelopes, and guest config is masked per §9. The shared contract kit runs against the capability (`tests/test_contract.py`).
-> - **Interim targets:** clusters are registered in the `HH_TARGETS_FILE` TOML (name, `endpoints`, `tls`, and per tier a `token_id` with a `token_secret_file`), not through `hh proxmox register` and the vault. See [development.md](../../development.md#mcp-server). Reads use the cluster's first endpoint. Each cluster gets a `proxmox:<name>` readiness check, which reports `degraded` when unreachable.
+> - **Interim targets:** clusters are registered in the `HH_TARGETS_FILE` TOML (name, `endpoints`, `tls`, and per tier a `token_id` with either a vault handle, `token_secret = "secret://<name>"`, or a `token_secret_file`), not through `hh proxmox register`. See [development.md](../../development.md#mcp-server). Reads use the cluster's first endpoint. Each cluster gets a `proxmox:<name>` readiness check, which reports `degraded` when unreachable.
 >
 > **Not yet built:** MCP resources and prompts (§8), inventory, plan tools, executors, events, retries at the adapter, node routing, and the minimum-version check at registration.
 

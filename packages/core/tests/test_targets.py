@@ -12,10 +12,14 @@ from homelab_harness.capabilities import discover_capabilities
 from homelab_harness.log_config import QUIET_LIBRARY_LOGGERS, configure_logging
 from homelab_harness.redaction import MASK, Redactor
 from homelab_harness.settings import Settings
-from homelab_harness.targets import load_targets
+from homelab_harness.targets import read_targets
 from homelab_harness_sdk import InvalidInput
 
 CORE_SRC = Path(__file__).parents[1] / "src"
+
+
+def load_targets(path, capabilities, **kwargs):
+    return read_targets(path, capabilities, **kwargs).registry()
 
 
 @pytest.fixture(scope="module")
@@ -116,6 +120,49 @@ def test_empty_secret_file_is_refused(tmp_path, capabilities, secret_file):
     secret_file.write_text("\n", encoding="utf-8")
     with pytest.raises(InvalidInput, match="empty"):
         load_targets(write_targets(tmp_path, entry(secret_file)), capabilities)
+
+
+def vault_entry(handle, *, extra=""):
+    return f"""
+[[proxmox]]
+name = "home"
+endpoints = ["pve1.lab.invalid:8006"]
+tls = {{ kind = "system" }}
+[proxmox.credentials.read]
+token_id = "harness@pve!read"
+token_secret = "{handle}"
+{extra}
+"""
+
+
+def test_vault_handles_are_collected_and_must_be_resolved(tmp_path, capabilities):
+    targets = read_targets(
+        write_targets(tmp_path, vault_entry("secret://pve-home-read")), capabilities
+    )
+    (ref,) = targets.vault_refs()
+    assert (ref.secret_name, ref.where, ref.token_id) == (
+        "pve-home-read",
+        "proxmox/home/read",
+        "harness@pve!read",
+    )
+    with pytest.raises(InvalidInput, match="not resolved"):
+        targets.registry()
+    registry = targets.registry({ref: "resolved-value"})
+    assert registry.get("proxmox", "home").credentials["read"].secret == "resolved-value"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        vault_entry("secret://Bad Name"),
+        vault_entry("op://vault/item"),
+        vault_entry("secret://pve", extra='token_secret_file = "/run/secrets/x"'),
+        entry(Path("/x")).replace('token_secret_file = "/x"', ""),
+    ],
+)
+def test_exactly_one_valid_secret_source_per_credential(tmp_path, capabilities, body):
+    with pytest.raises(InvalidInput, match=r"is invalid: credentials\.read"):
+        read_targets(write_targets(tmp_path, body), capabilities)
 
 
 def test_proxmox_is_discovered_through_its_entry_point(capabilities):

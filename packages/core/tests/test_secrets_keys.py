@@ -177,6 +177,29 @@ async def test_vault_check_ok_for_file_and_degraded_for_env(tmp_path):
     assert "dev and test only" in env_result.detail
 
 
+class _Store:
+    def __init__(self, result):
+        self.result = result
+
+    async def versions_on_other_keks(self):
+        if isinstance(self.result, Exception):
+            raise self.result
+        return self.result
+
+
+async def test_vault_check_probes_the_secrets_tables_once_open(tmp_path):
+    _, text = _keyring("kek-1")
+    provider = FileKeyProvider(_write(tmp_path / "kek", text, 0o400))
+    assert (await vault_check(provider, store=lambda: None)()).status is CheckStatus.OK
+    stale = await vault_check(provider, store=lambda: _Store(3))()
+    assert stale.status is CheckStatus.OK
+    assert "3 version(s) on an older KEK" in stale.detail
+    down = await vault_check(provider, store=lambda: _Store(OSError("CANARY_HOST:5432")))()
+    assert down.status is CheckStatus.FAIL
+    assert "secrets tables unreachable" in down.detail
+    assert "CANARY" not in down.detail
+
+
 def _env_settings(env, text):
     return Settings(env=env, secrets_kek_provider=KekProviderKind.ENV, secrets_kek=SecretStr(text))
 

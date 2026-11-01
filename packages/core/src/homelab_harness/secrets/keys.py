@@ -9,19 +9,24 @@ provider stops startup with a clear message (R-25). The KEK never goes to Postgr
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import binascii
 import os
 import re
 import secrets
 import stat
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Protocol
+
+import structlog
 
 from homelab_harness.health import CheckFn, CheckResult, CheckStatus
 from homelab_harness.secrets.crypto import KEY_BYTES, Kek, SecretIntegrityError, seal, unseal
 from homelab_harness.settings import Environment, KekProviderKind, Settings
+
+log = structlog.get_logger(__name__)
 
 _ENTRY_SEPARATOR = re.compile(r"[\n,]")
 _PROBE_ID = "readiness-probe"
@@ -280,14 +285,31 @@ def build_key_provider(settings: Settings) -> KeyProvider | None:
             return EnvKeyProvider(settings.secrets_kek.get_secret_value(), env=settings.env)
 
 
-def vault_check(provider: KeyProvider) -> CheckFn:
+class VaultStore(Protocol):
+    """The part of the vault service the readiness check probes."""
+
+    async def versions_on_other_keks(self) -> int:
+        """Count stored versions not yet wrapped by the current KEK."""
+        ...
+
+
+_STORE_TIMEOUT_SECONDS = 1.5  # below the registry's 2 s, so the check reports its own reason
+
+
+def vault_check(
+    provider: KeyProvider, *, store: Callable[[], VaultStore | None] | None = None
+) -> CheckFn:
     """Build the ``vault`` readiness check for a provider.
 
     The check seals and opens a random probe with the current KEK. It reports
-    *degraded* for the env provider, which must not hold real secrets.
+    *degraded* for the env provider, which must not hold real secrets. When the
+    vault's tables are available (``store`` returns a service), it also counts
+    the versions still wrapped by an older KEK, which proves the ``secrets``
+    tables answer; a failing query fails the check.
 
     Args:
         provider: The configured KEK provider.
+        store: Returns the vault service once the database is open, else ``None``.
 
     Returns:
         A coroutine function for :meth:`ReadinessRegistry.register`.
@@ -305,6 +327,16 @@ def vault_check(provider: KeyProvider) -> CheckFn:
             return CheckResult(CheckStatus.FAIL, f"{provider.name} provider: KEK self-test failed")
         count = len(provider.kek_ids())
         detail = f"{provider.name} provider, current KEK {kek.kek_id}, {count} key(s)"
+        vault = store() if store is not None else None
+        if vault is not None:
+            try:
+                async with asyncio.timeout(_STORE_TIMEOUT_SECONDS):
+                    stale = await vault.versions_on_other_keks()
+            except Exception as exc:  # any driver failure means "not ready"
+                log.warning("vault_check_store_failed", error_type=type(exc).__name__)
+                return CheckResult(CheckStatus.FAIL, f"{detail}; secrets tables unreachable")
+            if stale:
+                detail += f"; {stale} version(s) on an older KEK (run hh vault rotate-kek)"
         if provider.name == "env":
             return CheckResult(
                 CheckStatus.DEGRADED, f"{detail}; env KEKs are for dev and test only"
