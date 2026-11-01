@@ -120,8 +120,8 @@ async def test_startup_fails_fast_when_the_database_is_down():
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
-    password = "hh-canary-startup-77d1"
-    url = f"postgresql://harness:{password}@127.0.0.1:{port}/harness"
+    canary = "hh-canary-startup-77d1"
+    url = f"postgresql://harness:{canary}@127.0.0.1:{port}/harness"
     app = create_app(Settings(env=Environment.TEST, database_url=SecretStr(url)))
     started = time.monotonic()
     try:
@@ -131,7 +131,7 @@ async def test_startup_fails_fast_when_the_database_is_down():
     finally:
         redactor.clear()
     assert time.monotonic() - started < 15
-    assert password not in str(excinfo.value)
+    assert canary not in str(excinfo.value)
 
 
 async def test_app_without_a_database_starts_with_no_database_checks():

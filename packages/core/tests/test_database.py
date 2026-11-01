@@ -14,7 +14,7 @@ from homelab_harness.redaction import MASK, redactor
 from homelab_harness.settings import Environment, Settings
 from homelab_harness_sdk.errors import InvalidInput
 
-PASSWORD = "hh-canary-dbpass-51c0"
+CANARY = "hh-canary-dbpass-51c0"
 
 
 def _closed_port():
@@ -32,28 +32,26 @@ def test_postgres_schemes_pin_the_psycopg_driver(raw):
 
 @pytest.mark.parametrize(
     "raw",
-    [f"mysql://u:{PASSWORD}@h/db", f"postgresql://u:{PASSWORD}@h", f"::{PASSWORD}::not a url"],
+    [f"mysql://u:{CANARY}@h/db", f"postgresql://u:{CANARY}@h", f"::{CANARY}::not a url"],
 )
 def test_bad_urls_are_rejected_without_echoing_them(raw):
     with pytest.raises(InvalidInput) as excinfo:
         parse_database_url(raw)
-    assert PASSWORD not in str(excinfo.value)
+    assert CANARY not in str(excinfo.value)
 
 
 def test_database_url_is_secret_in_settings_repr():
-    s = Settings(database_url=SecretStr(f"postgresql://u:{PASSWORD}@h/db"))
-    assert PASSWORD not in repr(s)
-    assert PASSWORD not in str(s.model_dump())
+    s = Settings(database_url=SecretStr(f"postgresql://u:{CANARY}@h/db"))
+    assert CANARY not in repr(s)
+    assert CANARY not in str(s.model_dump())
 
 
 def test_create_app_registers_the_database_password_with_the_redactor():
     try:
         create_app(
-            Settings(
-                env=Environment.TEST, database_url=SecretStr(f"postgresql://u:{PASSWORD}@h/db")
-            )
+            Settings(env=Environment.TEST, database_url=SecretStr(f"postgresql://u:{CANARY}@h/db"))
         )
-        assert redactor.scrub_text(f"failed for {PASSWORD}") == f"failed for {MASK}"
+        assert redactor.scrub_text(f"failed for {CANARY}") == f"failed for {MASK}"
     finally:
         redactor.clear()
 
@@ -69,7 +67,7 @@ async def test_database_check_ok_against_a_live_database(engine):
 
 
 async def test_database_check_fails_cleanly_when_unreachable():
-    url = f"postgresql://harness:{PASSWORD}@127.0.0.1:{_closed_port()}/harness"
+    url = f"postgresql://harness:{CANARY}@127.0.0.1:{_closed_port()}/harness"
     eng = create_engine(Settings(env=Environment.TEST, database_url=SecretStr(url)))
     try:
         result = await database_check(eng)()
@@ -80,7 +78,7 @@ async def test_database_check_fails_cleanly_when_unreachable():
 
 
 async def test_readyz_reports_a_down_database_as_503():
-    url = f"postgresql://harness:{PASSWORD}@127.0.0.1:{_closed_port()}/harness"
+    url = f"postgresql://harness:{CANARY}@127.0.0.1:{_closed_port()}/harness"
     settings = Settings(env=Environment.TEST, database_url=SecretStr(url))
     app = create_app(settings)
     eng = create_engine(settings)
@@ -94,4 +92,4 @@ async def test_readyz_reports_a_down_database_as_503():
         redactor.clear()
     assert r.status_code == 503
     assert r.json()["checks"]["database"] == {"status": "fail", "detail": "unreachable"}
-    assert PASSWORD not in r.text
+    assert CANARY not in r.text
