@@ -26,7 +26,11 @@ FROM python:3.15-slim AS runtime
 RUN groupadd --system --gid 10001 harness \
     && useradd --system --uid 10001 --gid harness --no-create-home harness
 COPY --from=build /opt/venv /opt/venv
+# OTEL_SEMCONV_STABILITY_OPT_IN: emit the stable HTTP semantic conventions
+# (http.server.request.duration in seconds) that the Grafana dashboards query,
+# instead of the deprecated names the instrumentation still defaults to.
 ENV PATH="/opt/venv/bin:$PATH" \
+    OTEL_SEMCONV_STABILITY_OPT_IN=http \
     PYTHONUNBUFFERED=1 \
     HH_HOST=0.0.0.0 \
     HH_PORT=8080

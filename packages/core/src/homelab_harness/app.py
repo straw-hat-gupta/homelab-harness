@@ -25,6 +25,7 @@ from homelab_harness.jobs.runtime import dbos_check, launch_dbos, shutdown_dbos
 from homelab_harness.redaction import redactor
 from homelab_harness.secrets.keys import build_key_provider, vault_check
 from homelab_harness.settings import Environment, Settings, get_settings
+from homelab_harness.telemetry import Telemetry
 
 log = structlog.get_logger(__name__)
 
@@ -40,6 +41,9 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
         yield
         return
     engine = create_engine(settings)
+    telemetry: Telemetry | None = app.state.telemetry
+    if telemetry is not None:
+        telemetry.instrument_engine(engine)
     sessions = create_session_factory(engine)
     app.state.db_sessions = sessions
     app.state.audit = AuditWriter(sessions)
@@ -53,11 +57,14 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
         await engine.dispose()
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, telemetry: Telemetry | None = None) -> FastAPI:
     """Build the harness application.
 
     Args:
         settings: Settings to use; read from the environment when omitted.
+        telemetry: When given, every request is traced and measured, and the
+            app engine's queries are traced. ``None`` leaves the app
+            uninstrumented.
 
     Returns:
         A configured FastAPI app. ``app.state.readiness`` holds the readiness
@@ -91,6 +98,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.key_provider = key_provider
     if key_provider is not None:
         app.state.readiness.register("vault", vault_check(key_provider))
+    app.state.telemetry = telemetry
+    if telemetry is not None:
+        telemetry.instrument_app(app)
 
     @app.get("/healthz", tags=["health"])
     async def healthz() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
