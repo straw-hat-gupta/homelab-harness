@@ -1,7 +1,0 @@
-target-version = "py313"
-extend-exclude = ["*/migrations/*"]
-
-[lint]
-# Pyflakes (undefined names, unused imports/variables) plus syntax errors.
-# Candidates to add next: "I" (import order), "B" (bugbear), "UP" (pyupgrade).
-select = ["E9", "F"]

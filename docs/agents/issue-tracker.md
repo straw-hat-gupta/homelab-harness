@@ -1,6 +1,6 @@
 # Issue tracker: GitHub
 
-Issues and specs for this repo live as GitHub issues in [`straw-hat-gupta/agentic-assistant`](https://github.com/straw-hat-gupta/agentic-assistant/issues). Use the `gh` CLI for all operations. Roadmap tasks from `docs/roadmap.md` become issues when work starts on them.
+Issues and specs for this repo live as GitHub issues in [`straw-hat-gupta/agentic-assistant`](https://github.com/straw-hat-gupta/agentic-assistant/issues). Use the `gh` CLI for all operations. Roadmap tasks become issues when work starts on them.
 
 ## Conventions
 

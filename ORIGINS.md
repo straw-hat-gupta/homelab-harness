@@ -17,7 +17,7 @@ This repository was created on 2026-10-29 by extracting `v2/backend` from the Ai
 - OAuth connect/finalize flow with encrypted credential storage; Celery + Redis scheduled workflows.
 - 423 test methods, of which 256 ran under the original test runner.
 
-A pre-extraction audit found gaps that this project is fixing; see the [roadmap](docs/roadmap.md). They include:
+A pre-extraction audit found gaps that v0 set out to fix; see the [v0 roadmap](docs/archive/v0/roadmap.md). The v0 code was later archived for a rewrite; see [docs/archive/v0/](docs/archive/v0/README.md). The gaps included:
 - OAuth scopes that didn't cover every Gmail tool
 - retries that weren't idempotent
 - test discovery that skipped the planner, orchestrator, and tool tests
