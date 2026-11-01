@@ -106,7 +106,7 @@ What agents can see: `secrets.list` and `secrets.describe` return names, kinds, 
   - The library is pyca `cryptography` (`AESGCM`). There is no custom crypto and no plaintext fallback, unlike v0.
 - **KEK providers,** behind a pluggable `KeyProvider`:
   1. `systemd-creds`, TPM2-sealed when the host has a TPM;
-  2. a key file outside the DB volume, owned by the harness's service user. It is refused if it is a symlink or if group or others have any permission bit (0400 is recommended, 0600 is accepted);
+  2. a keyring file owned by the service user with mode 0400, outside the DB volume. Any other mode (0600 included, so the harness can't rewrite its own KEK), another owner, or a symlink is refused;
   3. an environment variable (`HH_SECRETS_KEK`), **dev and test only**. It is refused when `HH_ENV=prod`, and `/readyz` reports `vault` as degraded.
 
   Every provider reads the same **keyring format**: one `kek_id:base64key` entry per line (commas also separate entries, for the env variable), newest first. The first entry is the current KEK, and older entries stay until every DEK has been rewrapped. Keys must be exactly 32 bytes, and ids must be unique. Keys load once at startup, and a configured provider that is missing, insecure or malformed stops startup with an owner-safe message (R-25).

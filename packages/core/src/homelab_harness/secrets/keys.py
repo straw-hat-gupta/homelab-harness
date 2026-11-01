@@ -25,6 +25,7 @@ from homelab_harness.settings import Environment, KekProviderKind, Settings
 
 _ENTRY_SEPARATOR = re.compile(r"[\n,]")
 _PROBE_ID = "readiness-probe"
+_KEK_FILE_MODE = 0o400
 
 
 class KeyProviderError(Exception):
@@ -162,10 +163,14 @@ def _read_private_file(path: Path) -> str:
         info = os.fstat(handle.fileno())
         if not stat.S_ISREG(info.st_mode):
             raise KeyProviderError(f"KEK file {path} is not a regular file")
-        if info.st_mode & 0o077:
+        mode = stat.S_IMODE(info.st_mode)
+        # Owner read-only: the harness must not be able to rewrite its own KEK.
+        if mode != _KEK_FILE_MODE:
+            raise KeyProviderError(f"KEK file {path} has mode {mode:04o}; it must be 0400")
+        if info.st_uid not in {os.geteuid(), 0}:
             raise KeyProviderError(
-                f"KEK file {path} has mode {stat.S_IMODE(info.st_mode):04o}; "
-                "it must not be readable by group or others (use 0400 or 0600)"
+                f"KEK file {path} is owned by uid {info.st_uid}; "
+                "it must be owned by the service user"
             )
         data = handle.read()
     try:
@@ -175,7 +180,7 @@ def _read_private_file(path: Path) -> str:
 
 
 class FileKeyProvider(_Keyring):
-    """KEKs from a keyring file owned by the service user, mode 0400 or 0600."""
+    """KEKs from a keyring file owned by the service user, mode 0400."""
 
     def __init__(self, path: Path) -> None:
         """Load and validate the key file.
@@ -184,8 +189,8 @@ class FileKeyProvider(_Keyring):
             path: The keyring file. Symlinks are refused.
 
         Raises:
-            KeyProviderError: If the file is missing, a symlink, readable by group or
-                others, or malformed.
+            KeyProviderError: If the file is missing, a symlink, not mode 0400,
+                owned by another user, or malformed.
         """
         super().__init__(parse_keyring(_read_private_file(path), source=str(path)), name="file")
 

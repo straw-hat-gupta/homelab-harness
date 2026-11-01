@@ -42,7 +42,7 @@ Settings come only from `HH_*` environment variables (`packages/core/src/homelab
 | `HH_DATABASE_CONNECT_TIMEOUT_SECONDS` | `5` | Limit on opening a connection, and on waiting for a free one |
 | `HH_DATABASE_STATEMENT_TIMEOUT_MS` | `15000` | Server-side `statement_timeout` on every app connection |
 | `HH_SECRETS_KEK_PROVIDER` | unset | Vault KEK source: `file`, `systemd-creds` or `env`. Unset means no vault (and no `vault` readiness check). A configured provider that is missing or broken stops startup. |
-| `HH_SECRETS_KEK_FILE` | unset | Keyring file for the `file` provider. Refused unless its mode is 0400 or 0600 and it is not a symlink. |
+| `HH_SECRETS_KEK_FILE` | unset | Keyring file for the `file` provider. Refused unless it is mode 0400, owned by the service user (or root), and not a symlink. |
 | `HH_SECRETS_KEK_CREDENTIAL` | `hh-kek` | Credential name for the `systemd-creds` provider, read from `$CREDENTIALS_DIRECTORY/<name>` |
 | `HH_SECRETS_KEK` | unset | Keyring for the `env` provider, entries separated by commas. **Dev and test only:** refused when `HH_ENV=prod`, and `/readyz` reports `vault` as degraded. |
 | `HH_CLI_URL` | `http://127.0.0.1:8080` | Where `hh` sends requests |
@@ -88,8 +88,8 @@ export HH_ENV=dev HH_SECRETS_KEK_PROVIDER=env
 export HH_SECRETS_KEK="$(uv run python -c 'from homelab_harness.secrets.keys import generate_kek, keyring_line; print(keyring_line(generate_kek("dev-1")))')"
 
 # or a key file, as production uses it
-install -m 600 /dev/null ~/.config/hh-kek
-printf 'dev-1:%s\n' "$(openssl rand -base64 32)" > ~/.config/hh-kek
+(umask 077; printf 'dev-1:%s\n' "$(openssl rand -base64 32)" > ~/.config/hh-kek)
+chmod 0400 ~/.config/hh-kek          # owner read-only; any other mode is refused
 export HH_SECRETS_KEK_PROVIDER=file HH_SECRETS_KEK_FILE=~/.config/hh-kek
 ```
 

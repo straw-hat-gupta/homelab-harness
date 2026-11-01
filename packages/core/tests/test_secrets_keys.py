@@ -66,26 +66,36 @@ def test_parse_error_never_echoes_key_material():
     assert encoded not in str(info.value)
 
 
-@pytest.mark.parametrize("mode", [0o400, 0o600])
-def test_file_provider_accepts_owner_only_modes(tmp_path, mode):
+def test_file_provider_accepts_owner_read_only(tmp_path):
     keks, text = _keyring("kek-2", "kek-1")
-    provider = FileKeyProvider(_write(tmp_path / "kek", text, mode))
+    provider = FileKeyProvider(_write(tmp_path / "kek", text, 0o400))
     assert provider.current() == keks[0]
     assert provider.get("kek-1") == keks[1]
     assert provider.kek_ids() == ("kek-2", "kek-1")
     assert provider.name == "file"
 
 
-@pytest.mark.parametrize("mode", [0o644, 0o640, 0o604, 0o610])
-def test_file_provider_refuses_group_or_other_permissions(tmp_path, mode):
+@pytest.mark.parametrize("mode", [0o600, 0o700, 0o440, 0o404, 0o644, 0o640, 0o604, 0o610])
+def test_file_provider_refuses_any_mode_but_0400(tmp_path, mode):
     _, text = _keyring("kek-1")
-    with pytest.raises(KeyProviderError, match="group or others"):
+    with pytest.raises(KeyProviderError, match="must be 0400"):
         FileKeyProvider(_write(tmp_path / "kek", text, mode))
+
+
+def test_file_provider_refuses_a_file_owned_by_another_user(tmp_path, monkeypatch):
+    _, text = _keyring("kek-1")
+    path = _write(tmp_path / "kek", text, 0o400)
+    owner = path.stat().st_uid
+    if owner == 0:
+        pytest.skip("running as root, which is always an accepted owner")
+    monkeypatch.setattr(os, "geteuid", lambda: owner + 1)
+    with pytest.raises(KeyProviderError, match="owned by uid"):
+        FileKeyProvider(path)
 
 
 def test_file_provider_refuses_symlinks_and_missing_files(tmp_path):
     _, text = _keyring("kek-1")
-    real = _write(tmp_path / "kek", text, 0o600)
+    real = _write(tmp_path / "kek", text, 0o400)
     link = tmp_path / "link"
     link.symlink_to(real)
     with pytest.raises(KeyProviderError, match="cannot be opened"):
@@ -96,7 +106,7 @@ def test_file_provider_refuses_symlinks_and_missing_files(tmp_path):
 
 def test_unknown_kek_id_raises(tmp_path):
     _, text = _keyring("kek-1")
-    provider = FileKeyProvider(_write(tmp_path / "kek", text, 0o600))
+    provider = FileKeyProvider(_write(tmp_path / "kek", text, 0o400))
     with pytest.raises(KeyProviderError, match="unknown KEK id"):
         provider.get("kek-0")
 
@@ -133,7 +143,7 @@ def test_env_provider_is_refused_in_prod():
 def test_build_key_provider_from_settings(tmp_path, monkeypatch):
     assert build_key_provider(Settings()) is None
     _, text = _keyring("kek-1")
-    path = _write(tmp_path / "kek", text, 0o600)
+    path = _write(tmp_path / "kek", text, 0o400)
     monkeypatch.setenv("HH_SECRETS_KEK_PROVIDER", "file")
     monkeypatch.setenv("HH_SECRETS_KEK_FILE", str(path))
     assert isinstance(build_key_provider(Settings()), FileKeyProvider)
@@ -159,7 +169,7 @@ def test_build_key_provider_fails_clearly_when_incomplete(provider, message):
 
 async def test_vault_check_ok_for_file_and_degraded_for_env(tmp_path):
     _, text = _keyring("kek-1")
-    file_result = await vault_check(FileKeyProvider(_write(tmp_path / "kek", text, 0o600)))()
+    file_result = await vault_check(FileKeyProvider(_write(tmp_path / "kek", text, 0o400)))()
     assert file_result.status is CheckStatus.OK
     assert file_result.detail == "file provider, current KEK kek-1, 1 key(s)"
     env_result = await vault_check(EnvKeyProvider(text, env=Environment.TEST))()
