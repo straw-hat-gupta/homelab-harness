@@ -1,0 +1,14 @@
+{
+  "data": {
+    "upid": "UPID:pve1:0001A2B3:00C4D5E6:6720F3A1:qmstart:101:harness@pve!guest-ops:",
+    "node": "pve1",
+    "pid": 107187,
+    "pstart": 12899814,
+    "starttime": 1730212769,
+    "type": "qmstart",
+    "id": "101",
+    "user": "harness@pve!guest-ops",
+    "status": "stopped",
+    "exitstatus": "start failed: QEMU exited with code 1"
+  }
+}

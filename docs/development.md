@@ -14,6 +14,7 @@ One uv workspace with one lockfile (`uv.lock`, committed):
 | `packages/core` | `homelab-harness` | `homelab_harness` |
 | `packages/sdk` | `homelab-harness-sdk` | `homelab_harness_sdk` |
 | `cli` | `homelab-harness-cli` (installs `hh`) | `homelab_harness_cli` |
+| `capabilities/proxmox` | `homelab-harness-proxmox` | `homelab_harness_proxmox` |
 
 ```bash
 uv sync                                     # create .venv with every package editable + dev tools
@@ -41,6 +42,10 @@ Settings come only from `HH_*` environment variables (`packages/core/src/homelab
 | `HH_DATABASE_POOL_SIZE` | `5` | Connections in the app's pool. DBOS keeps a second pool of the same size. |
 | `HH_DATABASE_CONNECT_TIMEOUT_SECONDS` | `5` | Limit on opening a connection, and on waiting for a free one |
 | `HH_DATABASE_STATEMENT_TIMEOUT_MS` | `15000` | Server-side `statement_timeout` on every app connection |
+| `HH_SECRETS_KEK_PROVIDER` | unset | Vault KEK source: `file`, `systemd-creds` or `env`. Unset means no vault (and no `vault` readiness check). A configured provider that is missing or broken stops startup. |
+| `HH_SECRETS_KEK_FILE` | unset | Keyring file for the `file` provider. Refused unless it is mode 0400, owned by the service user (or root), and not a symlink. |
+| `HH_SECRETS_KEK_CREDENTIAL` | `hh-kek` | Credential name for the `systemd-creds` provider, read from `$CREDENTIALS_DIRECTORY/<name>` |
+| `HH_SECRETS_KEK` | unset | Keyring for the `env` provider, entries separated by commas. **Dev and test only:** refused when `HH_ENV=prod`, and `/readyz` reports `vault` as degraded. |
 | `HH_OTEL_EXPORTER_OTLP_ENDPOINT` | unset | OTLP/HTTP base URL, e.g. `http://otel-collector:4318`. Unset or empty means telemetry off: no exporters, no instrumentation. See [Observability](#observability). |
 | `HH_OTEL_EXPORT_TIMEOUT_SECONDS` | `5` | Limit on one export request |
 | `HH_OTEL_METRIC_EXPORT_INTERVAL_SECONDS` | `15` | How often metrics are pushed |
@@ -76,6 +81,25 @@ uv run homelab-harness-migrate revision --autogenerate -m "add plans"   # new sc
 Startup with a database configured opens the engine, registers the `database` readiness check (`SELECT 1`), launches DBOS (recovering pending workflows) and registers the `dbos` check. If Postgres is down at startup, the process exits and its supervisor restarts it. If it goes down later, `/readyz` reports `database` and `dbos` as `fail` and returns 503.
 
 **`audit_events` is append-only.** Triggers reject `UPDATE`, `DELETE` and `TRUNCATE` for every role except a superuser who disables them. In a hardened deployment, also run the harness as a role without `UPDATE`, `DELETE` or `TRUNCATE` grants on the table. The compose stack uses a single owner role for now. Audit `data` holds identifiers and counts only; the writer rejects payload-shaped input and redacts the rest.
+
+## Dev KEK
+
+The vault's key-encryption key (KEK) never goes to Postgres. Every provider reads a keyring: one `kek_id:base64key` entry per line (or comma), **newest first**. The first entry wraps new data keys, and older entries stay so that secrets wrapped before a rotation still open. Blank lines and `#` comments are ignored. Each key must decode to exactly 32 bytes.
+
+```bash
+# a throwaway KEK for local work, in the env provider (dev and test only)
+export HH_ENV=dev HH_SECRETS_KEK_PROVIDER=env
+export HH_SECRETS_KEK="$(uv run python -c 'from homelab_harness.secrets.keys import generate_kek, keyring_line; print(keyring_line(generate_kek("dev-1")))')"
+
+# or a key file, as production uses it
+(umask 077; printf 'dev-1:%s\n' "$(openssl rand -base64 32)" > ~/.config/hh-kek)
+chmod 0400 ~/.config/hh-kek          # owner read-only; any other mode is refused
+export HH_SECRETS_KEK_PROVIDER=file HH_SECRETS_KEK_FILE=~/.config/hh-kek
+```
+
+With systemd, store the keyring as an encrypted credential (TPM2-sealed when the host has a TPM) and load it with `LoadCredentialEncrypted=hh-kek:/etc/credstore.encrypted/hh-kek`; set `HH_SECRETS_KEK_PROVIDER=systemd-creds`. This path is unverified on a real host so far.
+
+Losing the KEK loses every secret: back the keyring up separately from the database.
 
 ## Container
 

@@ -1,0 +1,14 @@
+{
+  "data": {
+    "upid": "UPID:pve2:0002B3C4:00D5E6F7:6720F000:vzdump::root@pam:",
+    "node": "pve2",
+    "pid": 177092,
+    "pstart": 14018295,
+    "starttime": 1730211840,
+    "type": "vzdump",
+    "id": "",
+    "user": "root@pam",
+    "status": "stopped",
+    "exitstatus": "WARNINGS: 1"
+  }
+}

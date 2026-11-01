@@ -1,0 +1,11 @@
+{
+  "data": [
+    {
+      "poolid": "agent-managed",
+      "comment": "Guests created and managed by the harness"
+    },
+    {
+      "poolid": "lab"
+    }
+  ]
+}

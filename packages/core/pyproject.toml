@@ -15,6 +15,7 @@ dependencies = [
     "psycopg[binary]>=3.3,<4",
     "alembic>=1.20,<2",
     "dbos>=3.4,<4",
+    "cryptography>=44",
     "opentelemetry-api>=1.45.2",
     "opentelemetry-sdk>=1.45.2",
     "opentelemetry-exporter-otlp-proto-http>=1.45.2",

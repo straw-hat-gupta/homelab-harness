@@ -1,0 +1,15 @@
+{
+  "data": {
+    "name": "web-01",
+    "cores": 2,
+    "memory": "2048",
+    "sockets": 1,
+    "scsi0": "local-zfs:vm-101-disk-0,size=32G",
+    "net0": "virtio=BC:24:11:00:00:01,bridge=vmbr0",
+    "ciuser": "debian",
+    "cipassword": "**********",
+    "tags": "harness;harness-plan-7f3c",
+    "description": "managed-by: harness plan p_7f3c",
+    "digest": "3f7c2a9b1d4e5f60718293a4b5c6d7e8f9012345"
+  }
+}

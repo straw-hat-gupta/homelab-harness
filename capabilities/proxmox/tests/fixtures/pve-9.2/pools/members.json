@@ -1,0 +1,24 @@
+{
+  "data": [
+    {
+      "poolid": "agent-managed",
+      "comment": "Guests created and managed by the harness",
+      "members": [
+        {
+          "id": "qemu/101",
+          "type": "qemu",
+          "vmid": 101,
+          "node": "pve1",
+          "name": "web-01",
+          "status": "running"
+        },
+        {
+          "id": "storage/pve1/local-zfs",
+          "type": "storage",
+          "node": "pve1",
+          "storage": "local-zfs"
+        }
+      ]
+    }
+  ]
+}

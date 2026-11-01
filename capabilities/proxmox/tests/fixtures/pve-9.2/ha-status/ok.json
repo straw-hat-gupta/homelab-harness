@@ -1,0 +1,36 @@
+{
+  "data": [
+    {
+      "id": "quorum",
+      "type": "quorum",
+      "node": "pve1",
+      "status": "OK",
+      "quorate": 1
+    },
+    {
+      "id": "master",
+      "type": "master",
+      "node": "pve1",
+      "status": "pve1 (active, Fri Nov  1 10:00:00 2026)",
+      "timestamp": 1730455200
+    },
+    {
+      "id": "lrm:pve1",
+      "type": "lrm",
+      "node": "pve1",
+      "status": "pve1 (active, Fri Nov  1 10:00:01 2026)"
+    },
+    {
+      "id": "service:vm:101",
+      "type": "service",
+      "sid": "vm:101",
+      "node": "pve1",
+      "state": "started",
+      "crm_state": "started",
+      "request_state": "started",
+      "status": "vm:101 (pve1, started)",
+      "max_restart": 1,
+      "max_relocate": 1
+    }
+  ]
+}

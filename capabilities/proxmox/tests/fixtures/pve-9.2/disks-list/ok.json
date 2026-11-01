@@ -1,0 +1,57 @@
+{
+  "data": [
+    {
+      "devpath": "/dev/nvme0n1",
+      "type": "nvme",
+      "size": 1000204886016,
+      "model": "Samsung SSD 990 PRO 1TB",
+      "serial": "S7EXAMPLE0001",
+      "vendor": "unknown",
+      "wwn": "eui.0025385000000001",
+      "health": "PASSED",
+      "wearout": 98,
+      "used": "ZFS",
+      "gpt": 1,
+      "rpm": 0,
+      "osdid": -1,
+      "by_id_link": "/dev/disk/by-id/nvme-Samsung_SSD_990_PRO_1TB_S7EXAMPLE0001"
+    },
+    {
+      "devpath": "/dev/sda",
+      "type": "ssd",
+      "size": 1920383410176,
+      "model": "SAMSUNG_MZ7L31T9HBLT-00A07",
+      "serial": "S6ESNX0W123456",
+      "vendor": "ATA",
+      "health": "PASSED",
+      "wearout": 100,
+      "gpt": 0,
+      "rpm": 0,
+      "osdid": -1,
+      "by_id_link": "/dev/disk/by-id/ata-SAMSUNG_MZ7L31T9HBLT-00A07_S6ESNX0W123456"
+    },
+    {
+      "devpath": "/dev/sdb",
+      "type": "hdd",
+      "size": 4000787030016,
+      "model": "WDC_WD40EFRX-68N32N0",
+      "serial": "WD-EXAMPLE0002",
+      "health": "PASSED",
+      "wearout": "N/A",
+      "used": "partitions",
+      "gpt": 1,
+      "rpm": 5400,
+      "osdid": -1
+    },
+    {
+      "devpath": "/dev/sdb1",
+      "parent": "/dev/sdb",
+      "type": "partition",
+      "size": 4000785960448,
+      "used": "ext4",
+      "gpt": 1,
+      "health": "UNKNOWN",
+      "wearout": "N/A"
+    }
+  ]
+}

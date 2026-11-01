@@ -1,0 +1,7 @@
+{
+  "data": {
+    "health": "PASSED",
+    "type": "text",
+    "text": "SMART/Health Information (NVMe Log 0x02)\nCritical Warning: 0x00\nPercentage Used: 2%\n"
+  }
+}
