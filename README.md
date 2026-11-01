@@ -2,7 +2,22 @@
 
 [![CI](https://github.com/straw-hat-gupta/agentic-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/straw-hat-gupta/agentic-assistant/actions/workflows/ci.yml)
 
-> **Status: being rebuilt.** This repository is being rewritten as an AI layer for Proxmox-based home labs. The specification lands first, then the code, in stages. There is no runnable code on `main` right now.
+> **Status: specification stage.** There is no runnable code yet. The design is complete, and code lands in stages. See the [roadmap](docs/roadmap.md).
+
+**An AI control plane for Proxmox home labs.** You bring the Claude or ChatGPT you already pay for, connected over MCP. The harness makes that model a safe, expert operator for your lab:
+- typed tools and live inventory for Proxmox, Linux, Docker, Cloudflare and Obsidian tasks;
+- every change goes through a **plan with a deterministic preview**, with **approval on your phone** that the model can't fake;
+- **durable jobs** that survive restarts without repeating a write;
+- an append-only audit trail and OpenTelemetry traces end to end;
+- a versioned **steering pack** that makes models careful infra, DevOps and security engineers.
+
+| Start here | |
+|---|---|
+| [Vision](docs/spec/vision.md) | What it is, its principles and non-goals |
+| [Architecture](docs/spec/architecture.md) | Components, code layout, and the plan, approve, apply flow |
+| [Safety model](docs/spec/safety-model.md) | Invariants, risk tiers, previews, approvals |
+| [Full specification](docs/spec/README.md) | Every spec doc, in reading order |
+| [ADRs](docs/adr/) · [Glossary](GLOSSARY.md) · [Roadmap](docs/roadmap.md) | Decisions, vocabulary, stages |
 
 ## What happened to the old code
 

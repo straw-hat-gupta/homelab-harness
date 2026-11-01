@@ -4,9 +4,16 @@ Steering guide for AI coding agents (and humans) working in this repository. Rea
 
 ## Project status: rebuild in progress
 
-The v0 Django backend is archived at the `v0-django-final` tag, and its docs are in `docs/archive/v0/`. `main` currently contains documentation only. The rewrite is specified first and then built in stages.
+The v0 Django backend is archived at the `v0-django-final` tag, and its docs are in `docs/archive/v0/`. `main` currently contains documentation only. The rewrite is specified in [`docs/spec/`](docs/spec/README.md), and its decisions are recorded in [`docs/adr/`](docs/adr/). It is built in the stages listed in [`docs/roadmap.md`](docs/roadmap.md).
 
-Until the rewrite's own guide replaces this section:
+**The spec is binding.** In particular:
+- [safety-model.md](docs/spec/safety-model.md) (invariants S1–S10) may only be made stricter.
+- [extending.md](docs/spec/extending.md) sets the capability contract: new capabilities don't edit `core`.
+- [GLOSSARY.md](GLOSSARY.md) is the vocabulary.
+
+If an implementation needs to contradict the spec, change the spec, and add an ADR when the change touches safety, in the same PR. Stage 1 replaces this section with the code-level guide: layout, commands and testing.
+
+Until then:
 - **Don't restore or extend v0 code on `main`.** Read it at the tag when you need to port logic. Port the logic, not the Django structure.
 - **Treat `docs/archive/v0/` as history.** It describes v0 as it was. Don't edit it, except to fix broken links.
 - **The v0 audit and its cross-check are input requirements.** Every v0 failure mode they list should become a regression test in the rewrite.
