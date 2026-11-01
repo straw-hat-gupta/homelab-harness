@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added (MCP server)
+- An MCP server at `/mcp` on the harness app: streamable HTTP, stateless, JSON responses, built on the official MCP Python SDK (`mcp` 2.3). It serves protocol 2026-07-28 and the earlier handshake versions. Everything below is **mocked against Proxmox; not verified live** against a PVE node or against Claude Code or Codex. The SDK's own client was run against a local server.
+- 18 Proxmox read tools (`proxmox.cluster.list`, `.cluster.resources`, `.node.list`, `.node.get`, `.guest.list`, `.guest.get`, `.storage.list`, `.storage.status`, `.storage.content`, `.disk.list`, `.disk.smart`, `.network.list`, `.pool.list`, `.ha.status`, `.backup.jobs`, `.task.list`, `.task.get`, `.metrics.rrd`). Each has JSON Schemas and `readOnlyHint`/`idempotentHint`, and returns structured content with `as_of` plus a text rendering. Target-sourced text sits in `untrusted` envelopes, and `_meta` flags it. Guest config is masked: passwords, tokens, keys, `args`, `hookscript` and `cicustom` show as `[MASKED]`, and SSH keys only as fingerprints.
+- Capabilities are discovered through the `homelab_harness.capabilities` entry point. The SDK gains `@read_tool`, `ToolInput`, `ToolOutput`, `Untrusted`, `ToolContext`, `Capability`, `Manifest`, and the contract test kit `homelab_harness_sdk.testing` (extra `testing`).
+- **Interim** target registration: `HH_TARGETS_FILE` names a TOML file of clusters, each with a per-tier `token_id` and an owner-only `token_secret_file`. Secrets are read once and registered with the redactor. `/readyz` gains `proxmox:<name>` checks, which report `degraded` when a cluster is unreachable.
+- **Interim** MCP auth: per-client bearer tokens from `homelab-harness-token create|revoke|list` (new `mcp_clients` table, migration `0002`; only a SHA-256 hash is stored). Requests without a valid token get 401 with `WWW-Authenticate: Bearer`. **Tailnet only until OAuth (ADR-0007) lands.**
+- Every tool call writes an `mcp.tool_call` audit event (client, tool, target, outcome, duration; no arguments). If the audit write fails, the call fails.
+- The image now installs the Proxmox capability.
+
+### Fixed
+- The Proxmox adapter no longer hangs on a cyclic exception chain while looking for a TLS verification cause.
+- httpx and httpcore loggers are held at WARNING. httpx's INFO request line carried the response reason phrase, where Proxmox puts its error text.
+
 ### Added (observability)
 - OpenTelemetry traces, metrics and logs over OTLP/HTTP, turned on by `HH_OTEL_EXPORTER_OTLP_ENDPOINT` (off when unset or empty), with `HH_OTEL_EXPORT_TIMEOUT_SECONDS` and `HH_OTEL_METRIC_EXPORT_INTERVAL_SECONDS`. Spans and metrics come from FastAPI requests, the app engine's queries and outgoing httpx calls.
 - Every span is redacted before export: span names, attributes, events, links and status pass the shared redactor (S9, R-16).

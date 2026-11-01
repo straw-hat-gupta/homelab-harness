@@ -5,8 +5,10 @@
 > **Implemented** in `capabilities/proxmox` (package `homelab_harness_proxmox`), **mocked; not yet verified live**:
 > - the read-only adapter (§3): the endpoints listed under "Adapter coverage" in §4.1, TLS trust per §2.1, the error mapping, and the UPID parser;
 > - the bootstrap renderer (§2.4) as a pure function, `render_bootstrap_script()`. The `hh proxmox bootstrap` CLI command, `hh proxmox verify`, and the token vault are not built yet.
+> - the read tools (§4.1) marked *implemented* in the table, served over MCP. Every tool carries `readOnlyHint`, `idempotentHint` and `openWorldHint: false`, and returns `as_of`. Target-sourced text sits in `untrusted` envelopes, and guest config is masked per §9. The shared contract kit runs against the capability (`tests/test_contract.py`).
+> - **Interim targets:** clusters are registered in the `HH_TARGETS_FILE` TOML (name, `endpoints`, `tls`, and per tier a `token_id` with a `token_secret_file`), not through `hh proxmox register` and the vault. See [development.md](../../development.md#mcp-server). Reads use the cluster's first endpoint. Each cluster gets a `proxmox:<name>` readiness check, which reports `degraded` when unreachable.
 >
-> **Not yet built:** MCP tools, inventory, plan tools, executors, events, retries at the adapter, node routing, and the minimum-version check at registration.
+> **Not yet built:** MCP resources and prompts (§8), inventory, plan tools, executors, events, retries at the adapter, node routing, and the minimum-version check at registration.
 
 This is the primary capability: the reason the harness exists. It turns the Proxmox VE API into typed read tools, plan tools, and durable executors. Everything follows the [safety model](../safety-model.md): read, then plan, then approve, then apply, then verify. Vocabulary follows the [glossary](../../../GLOSSARY.md).
 
@@ -169,25 +171,28 @@ Conventions:
 
 ### 4.1 Read tools (T0)
 
-**Adapter coverage (implemented, mocked; not yet verified live).** No tool is registered yet. `ProxmoxClient` reads these endpoints: `/version`, `/cluster/status`, `/cluster/resources`, `/cluster/tasks`, `/cluster/ha/status/current`, `/cluster/backup`, `/pools`, `/storage`, `/nodes`, and per node `status`, `rrddata`, `network`, `{qemu,lxc}` lists, `{qemu,lxc}/{id}/{config,status/current}`, `storage/{s}/{status,content}`, `disks/list`, `disks/smart`, `tasks`, and `tasks/{upid}/{status,log}` (routed to the node in the UPID). Still to add: `apt/update`, snapshots, guest agent, ZFS, firewall, HA resources and rules, and guest or storage RRD.
+**Adapter coverage (implemented, mocked; not yet verified live).** The tools marked *implemented* below are served over MCP. `ProxmoxClient` reads these endpoints: `/version`, `/cluster/status`, `/cluster/resources`, `/cluster/tasks`, `/cluster/ha/status/current`, `/cluster/backup`, `/pools`, `/storage`, `/nodes`, and per node `status`, `rrddata`, `network`, `{qemu,lxc}` lists, `{qemu,lxc}/{id}/{config,status/current}`, `storage/{s}/{status,content}`, `disks/list`, `disks/smart`, `tasks`, and `tasks/{upid}/{status,log}` (routed to the node in the UPID). Still to add: `apt/update`, snapshots, guest agent, ZFS, firewall, HA resources and rules, and guest or storage RRD.
 
 | Tool | Returns | Source |
 |---|---|---|
-| `proxmox.cluster.list` | Registered clusters, nodes, quorum, version | `/cluster/status`, `/version` |
-| `proxmox.cluster.resources` | All guests, storages, and nodes with usage, filterable by `type`, `node`, `pool`, `tag` | `/cluster/resources` |
-| `proxmox.node.get` | CPU, memory, uptime, kernel, PVE version, subscription state, pending apt updates count | `/nodes/{n}/status`, `/nodes/{n}/apt/update` (cached list only; no refresh) |
-| `proxmox.guest.list` / `.get` | Guest summary; `.get` adds config (secrets redacted), snapshots, HA state, backup recency, and pool | `/nodes/{n}/{qemu,lxc}/{id}/{status/current,config,snapshot}` |
+| `proxmox.cluster.list` | Registered clusters, nodes, quorum, version. *Implemented.* Lists every registered cluster. One that cannot be read is reported with `reachable: false` and an owner-safe `error`, not as a failed call. | `/cluster/status`, `/version` |
+| `proxmox.cluster.resources` | All guests, storages, and nodes with usage, filterable by `type`, `node`, `pool`, `tag`. *Implemented.* `type` is filtered by PVE; `node`, `pool` and `tag` are filtered by the harness. | `/cluster/resources` |
+| `proxmox.node.list` | *Implemented.* Nodes with online status, CPU, memory, disk, uptime and certificate fingerprint | `/nodes` |
+| `proxmox.node.get` | CPU, memory, uptime, kernel, PVE version, subscription state, pending apt updates count. *Implemented,* without the subscription state or the pending-updates count (the adapter does not read `apt/update` yet). | `/nodes/{n}/status`, `/nodes/{n}/apt/update` (cached list only; no refresh) |
+| `proxmox.guest.list` / `.get` | Guest summary; `.get` adds config (secrets redacted), snapshots, HA state, backup recency, and pool. *Implemented.* `.get` resolves the node and type from `/cluster/resources` when they are omitted. It returns status, HA state, the config digest, and the masked config; snapshots and backup recency are not included yet. `.list` without a node reads every online node, and reports the nodes that fail in `unreachable_nodes`. | `/nodes/{n}/{qemu,lxc}/{id}/{status/current,config,snapshot}` |
 | `proxmox.guest.agent_info` | QEMU guest agent: OS info, IPs, filesystems (read-only agent calls only) | `.../agent/{get-osinfo,network-get-interfaces,get-fsinfo}` |
-| `proxmox.storage.list` / `.content` | Storages with type, usage, and content types; volumes on a storage | `/storage`, `/nodes/{n}/storage/{s}/{status,content}` |
-| `proxmox.disk.list` | Physical disks: devpath, **by-id path**, serial, model, size, wearout, health, `used` (partitions, LVM, ZFS, Ceph, mounted). This answers "which disks are new and empty?" | `/nodes/{n}/disks/list?include-partitions=1` |
-| `proxmox.disk.smart` | SMART attributes and health for one disk | `/nodes/{n}/disks/smart?disk=` |
+| `proxmox.storage.list` / `.content` | Storages with type, usage, and content types; volumes on a storage. *Implemented.* | `/storage`, `/nodes/{n}/storage/{s}/{status,content}` |
+| `proxmox.storage.status` | *Implemented.* One storage's usage on one node | `/nodes/{n}/storage/{s}/status` |
+| `proxmox.pool.list` | *Implemented.* Resource pools; with `pool`, its members. Comments are untrusted | `/pools` |
+| `proxmox.disk.list` | Physical disks: devpath, **by-id path**, serial, model, size, wearout, health, `used` (partitions, LVM, ZFS, Ceph, mounted). This answers "which disks are new and empty?". *Implemented.* | `/nodes/{n}/disks/list?include-partitions=1` |
+| `proxmox.disk.smart` | SMART attributes and health for one disk. *Implemented.* The SMART `text` (NVMe, SAS) is untrusted. | `/nodes/{n}/disks/smart?disk=` |
 | `proxmox.zfs.list` / `.get` | Pools, layout, health, errors, scrub status | `/nodes/{n}/disks/zfs[/{name}]` |
-| `proxmox.network.list` | Interfaces and bridges, **including pending changes** (`interfaces.new` diff) | `/nodes/{n}/network` |
+| `proxmox.network.list` | Interfaces and bridges, **including pending changes** (`interfaces.new` diff). *Implemented,* with `has_pending_changes` and the diff (untrusted). | `/nodes/{n}/network` |
 | `proxmox.firewall.get` | Cluster, node, and guest rules, options, aliases, ipsets | `/cluster/firewall/*`, `/nodes/{n}/firewall/*`, `.../{id}/firewall/*` |
-| `proxmox.ha.status` | HA manager status, resources, rules or groups | `/cluster/ha/{status/current,resources,rules}` *(9.x uses rules; groups are legacy, unverified)* |
-| `proxmox.backup.jobs` / `.recent` | Backup jobs and schedules; last result per guest, from task history | `/cluster/backup`, `/nodes/{n}/tasks?typefilter=vzdump` |
-| `proxmox.task.list` / `.get` | Recent tasks, or one task with log excerpt | `/cluster/tasks`, `/nodes/{n}/tasks/{upid}/{status,log}` |
-| `proxmox.metrics.rrd` | Time series for node, guest, or storage over `hour`/`day`/`week`/`month`/`year`, `cf=AVERAGE` or `MAX` | `/nodes/{n}/rrddata`, `.../{id}/rrddata`, `/nodes/{n}/storage/{s}/rrddata` |
+| `proxmox.ha.status` | HA manager status, resources, rules or groups. *Implemented* for `status/current` only; resources and rules are not read yet. | `/cluster/ha/{status/current,resources,rules}` *(9.x uses rules; groups are legacy, unverified)* |
+| `proxmox.backup.jobs` / `.recent` | Backup jobs and schedules; last result per guest, from task history. *Implemented* for `.jobs`; `.recent` is `proxmox.task.list` with `type: vzdump` for now. | `/cluster/backup`, `/nodes/{n}/tasks?typefilter=vzdump` |
+| `proxmox.task.list` / `.get` | Recent tasks, or one task with log excerpt. *Implemented.* The status text and log lines are untrusted; `.get` returns a log window (`log_start`, `log_limit` up to 500). | `/cluster/tasks`, `/nodes/{n}/tasks/{upid}/{status,log}` |
+| `proxmox.metrics.rrd` | Time series for node, guest, or storage over `hour`/`day`/`week`/`month`/`year`, `cf=AVERAGE` or `MAX`. *Implemented* for nodes; guest and storage series are not read yet. | `/nodes/{n}/rrddata`, `.../{id}/rrddata`, `/nodes/{n}/storage/{s}/rrddata` |
 | `proxmox.capacity.check` | Deterministic helper: can node X fit cores/memory/disk Y on storage Z? Returns headroom and the reasoning | Inventory plus live status |
 | `proxmox.job.get` / `.list` | Harness jobs for Proxmox plans: steps, UPIDs, outcome, verification | Core jobs tables |
 
@@ -424,9 +429,9 @@ These are never logged, stored in plans, or returned to clients:
 - guest-agent file-read contents;
 - webhook secrets.
 
-Config fields matching `/pass|secret|token|key/i` are masked in `guest.get`. Task logs pass through the shared redactor before storage. A contract-kit test plants a canary secret in every one of these fields and asserts it never appears in logs, plans, MCP responses, or traces. See [observability.md](../observability.md).
+Config fields matching `/pass|secret|token|key/i` are masked in `guest.get`. *Implemented* in `masking.py`. Values of `args`, `hookscript`, `cicustom` and every key matching the pattern become `[MASKED]`, and `masked_keys` lists them. `sshkeys` becomes `ssh_key_fingerprints` (OpenSSH `SHA256:`), and the key comments are dropped. The pattern over-masks a few harmless keys such as `keyboard`, which is the safe direction. Task logs pass through the shared redactor before storage. A contract-kit test plants a canary secret in every one of these fields and asserts it never appears in logs, plans, MCP responses, or traces. See [observability.md](../observability.md).
 
-**Untrusted strings.** Guest names, descriptions, tags, notes, and task logs are **untrusted content**: anyone with guest access can write to them. They are returned inside an `untrusted` envelope, so the steering pack tells the model these are data, not instructions. They never influence tier or policy. See [threat-model.md](../threat-model.md).
+**Untrusted strings.** Guest names, descriptions, tags, notes, and task logs are **untrusted content**: anyone with guest access can write to them. They are returned inside an `untrusted` envelope, so the steering pack tells the model these are data, not instructions. *Implemented:* every such field sits in an object named `untrusted`, marked `x-harness-untrusted` in the output schema. The result's `_meta` carries `homelab-harness/untrusted: true`, and the text rendering says how to read it. Node names and SMART attribute names are treated as identifiers, and the contract test records why. They never influence tier or policy. See [threat-model.md](../threat-model.md).
 
 ---
 
@@ -437,7 +442,7 @@ Config fields matching `/pass|secret|token|key/i` are masked in `guest.get`. Tas
 | Adapter unit | Every endpoint used above: success, plus 400/401/403/500-lock/595/connect error/read timeout | **Now:** hand-written fixtures from the PVE API viewer docs (`tests/fixtures/pve-9.2/<endpoint>/<case>.json`), replayed with `respx`; an error-mapping table with a canary in the body; TLS pinning against a local server with certificates generated at test time; UPID round-trip tests. **Later:** replace the fixtures with recordings captured once from a lab node, secrets scrubbed. |
 | Planner unit (pure) | Preflight and preview for every plan kind; tier floors; escalation (outside pool, harness host, HA) | Plain pytest, no I/O, fixture inventories. Golden-file previews (`previews/<kind>/<case>.txt`). Changes are reviewed in diffs. |
 | Executor | Step idempotency, UPID persisted before polling, resume after a crash at each step, ambiguous-write → `uncertain`, stale plan → `cancelled` | DBOS test harness with Postgres (testcontainers). Fault injection: kill after step N, drop the connection mid-call. |
-| Contract kit | The shared [SDK kit](../extending.md): schema validity, annotations present, every write tool is a `plan_*`, error mapping coverage, canary-secret redaction, untrusted envelope | Runs automatically for every capability |
+| Contract kit | The shared [SDK kit](../extending.md): schema validity, annotations present, every write tool is a `plan_*`, error mapping coverage, canary-secret redaction, untrusted envelope | **Now:** `tests/test_contract.py` subclasses `homelab_harness_sdk.testing.CapabilityContract`. It plants canaries in every §9 field, and in the response body and token for 401/403/404/409/429/500/503/timeout/connect cases, across all 18 tools. |
 | Bootstrap | `hh proxmox bootstrap` output | Golden file (`tests/golden/bootstrap-home.sh`, implemented; a test also checks that the §2.4 example equals it). `hh proxmox verify` against fixture permission matrices (exact match, too broad, too narrow) |
 | Live suite (nested PVE) | Create from template, snapshot, rollback, migrate (2-node nested), destroy, ZFS stripe and mirror on virtual disks, network stage and revert, firewall lockout refusal, token-scope enforcement (a provision token cannot touch a guest outside the pool) | A nested PVE 9.2 cluster in VMs, reset from a snapshot per run. Manual or scheduled, not per PR. Results recorded in `docs/verification.md`. See [testing-and-evals.md](../testing-and-evals.md). |
 | Reliability mapping | Each relevant requirement in [reliability.md](../reliability.md) names its test here | Enforced by the reliability-table check |
