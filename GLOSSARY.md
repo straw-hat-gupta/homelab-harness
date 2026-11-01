@@ -25,6 +25,11 @@ The project's vocabulary. Use these terms, in this sense, in code, docs, issues 
 | **Outcome** | The terminal result of a job: `succeeded`, `failed` (definitely did not take effect), `uncertain` (may have taken effect; needs a human), `rolled_back`, `cancelled`. | — |
 | **Verification** | The read performed after apply, confirming the target reached the planned state. | — |
 | **Agent pool** | A Proxmox resource pool that holds guests created by the harness. Scoped tokens act only inside it. | — |
+| **Secret** | A credential held in the harness vault (an SSH key, password, token, file or key/value bundle), encrypted at rest and referenced by handle. See [secrets.md](docs/spec/secrets.md). | "key" (ambiguous with encryption keys) |
+| **Handle** | A secret's reference, `secret://<name>`. This is all an agent ever sees. | "secret ID" |
+| **Grant** | The owner's permission for one client to use one secret in one mode, within a scope, with an approval rule and an expiry. | "permission", "share" |
+| **Use mode** | How a granted secret is used: `broker`, `ssh-sign`, `http-inject`, `file-mount`, `env` (exposing), or `reveal` (owner only). | — |
+| **KEK / DEK** | The key-encryption key (held outside the DB) and the per-secret data-encryption key it wraps. | "master key" |
 | **Capability token** | A privilege-separated Proxmox API token, or a scoped token for another system, held for one capability and risk level. | "API key" |
 | **Steering pack** | Versioned prompts, skills and runbooks that shape how clients behave. Distributed as Agent Skills, MCP prompts and resources, and AGENTS.md. | "system prompt" (only one part of it) |
 | **Runbook** | A steering document for one kind of work. It follows the order trigger, read-only diagnostics, hypotheses, plan, verify, rollback. | "playbook" (that word is Ansible's) |

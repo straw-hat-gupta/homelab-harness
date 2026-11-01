@@ -46,6 +46,9 @@
 | T-14 | Approval channel spoofing (a fake ntfy callback) | Callback tokens are HMAC-signed, single-use and bound to the plan hash. The callback endpoint is tailnet-only. The ntfy topic has access control. | approvals tests |
 | T-15 | Vault notes exfiltrated through a connected client | Path allowlist and size limits on note reads. The owner decides which clients connect. Note reads are audited. | [obsidian.md](capabilities/obsidian.md) |
 | T-16 | Supply chain: a malicious package update (the 2026 LiteLLM-style incident) | Locked, hashed dependencies. No auto-merge of dependency updates. Minimal dependency set. A model gateway is not needed, because the harness calls no model. | CI |
+| T-17 | An agent exfiltrates a secret it was allowed to *use* | Brokered modes keep values out of the agent's reach (`broker`, `ssh-sign`, `http-inject`). The `env` mode is labelled exposing and needs T3. Egress routes pin the upstream, so a granted token can't be sent elsewhere. A redaction scanner covers every output. | [secrets.md](secrets.md); R-34, R-36 |
+| T-18 | Phishing through secret intake (a model or an attacker sends the owner a fake "enter your token" link) | Intake pages are served only by the harness on the tailnet and require an owner passkey session. ntfy shows the requesting client and purpose. URL elicitation shows the full URL before opening it. | R-37 |
+| T-19 | KEK theft, or a backup leak | The KEK lives outside Postgres (systemd-creds/TPM or a root-only age file). DB dumps contain only ciphertext. KEK rotation rewraps DEKs. | R-25 |
 
 ## Residual risks (accepted for v1)
 

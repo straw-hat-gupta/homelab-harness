@@ -10,7 +10,7 @@ The spec is in [`docs/spec/`](spec/README.md), the decisions are in [`docs/adr/`
 - [x] Write the vision, architecture, safety model, threat model, clients, observability, reliability, extending, steering, testing and evals, UI vision, and capability specs (Proxmox, Linux and Docker, Cloudflare, Obsidian).
 - [x] Write ADRs 0001–0008 and the glossary.
 - [x] The maintainer reviews the docs and resolves the [open decisions](#open-decisions) marked "before Stage 1" (D-1 and D-2, 2026-11-01).
-- [ ] Specify secrets: storage, brokered use without exposing values, and owner intake (`docs/spec/secrets.md`, added in a follow-up PR).
+- [x] Specify secrets: storage, brokered use without exposing values, and owner intake ([secrets.md](spec/secrets.md), ADR-0009).
 
 **Done when:** this PR is merged with its decisions resolved, and AGENTS.md has been rewritten for the new layout.
 
@@ -26,7 +26,7 @@ Daily value: "What's going on in my cluster?" from Claude Code, Codex or claude.
 - FastAPI app, settings, structlog with redaction, OTel.
 - `/healthz` and `/readyz`.
 - Postgres with Alembic, DBOS initialized.
-- The vault, with MultiFernet and `hh vault rotate`.
+- The secrets vault: envelope encryption, KEK providers, `hh secret add/list/rotate/revoke`, the `broker` mode and the redaction scanner. Later stages add grants, intake, `ssh-sign` and egress ([secrets.md](spec/secrets.md#roadmap-placement)).
 - Inventory sync workflows, and an audit writer for tool calls.
 
 **MCP**

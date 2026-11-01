@@ -17,7 +17,8 @@ The full design for the rewrite. Read it in this order:
 9. **[reliability.md](reliability.md):** requirements R-01 to R-33, each with a test.
 10. **[testing-and-evals.md](testing-and-evals.md):** the test pyramid, the contract kit, and eval tiers.
 11. **[extending.md](extending.md):** how to add a capability without touching the core.
-12. **[ui-vision.md](ui-vision.md):** the web UI planned after v1 (terminals, dashboard widgets, live usage).
+12. **[secrets.md](secrets.md):** the vault, grants, and how agents use secrets without seeing them, plus owner intake.
+13. **[ui-vision.md](ui-vision.md):** the web UI planned after v1 (terminals, dashboard widgets, live usage).
 
 Related:
 - [ADRs](../adr/)

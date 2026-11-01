@@ -10,6 +10,14 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Decided
 - The project is named **homelab-harness**, with an `hh` CLI. Owner auth is an embedded single-owner OAuth authorization server (ADR-0007, accepted).
 
+### Added (secrets specification)
+- `docs/spec/secrets.md` and ADR-0009 cover how secrets are handled:
+  - a built-in envelope-encrypted vault;
+  - grants per client and use mode, so agents use secrets by handle without seeing values;
+  - SSH signing inside the harness, and egress routes that inject credentials;
+  - owner intake through the CLI, a passkey-protected page, and MCP URL-mode elicitation.
+- New reliability requirements R-34 to R-37, threat-model rows T-17 to T-19, and glossary terms.
+
 ### Added (rewrite specification)
 - `docs/spec/` defines the rewrite as an AI control plane for Proxmox home labs:
   - vision, architecture, safety model, threat model, and client connections (bring your own subscription);
