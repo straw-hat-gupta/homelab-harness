@@ -1,6 +1,6 @@
 # Connecting AI clients (bring your own subscription)
 
-> **Status: specification.** It was researched on 2026-10-31 against vendor docs. Vendor policies change, so re-check the sources before each release. Anything marked "(unverified)" came from secondary sources.
+> **Status: specification, partly implemented.** The `/mcp` server, its tool annotations, and interim bearer-token auth are built (see [Connecting during Stage 1](#connecting-during-stage-1-interim-bearer-tokens)). OAuth (ADR-0007) is not built yet. It was researched on 2026-10-31 against vendor docs. Vendor policies change, so re-check the sources before each release. Anything marked "(unverified)" came from secondary sources.
 
 ## The rule
 
@@ -21,17 +21,42 @@ This is the only pattern that is clearly permitted:
 
 ## MCP server requirements (what the harness implements)
 
-- **Transport:** streamable HTTP at `/mcp`, implementing spec 2026-07-28 (stateless, `MCP-Protocol-Version` header).
+- **Transport:** streamable HTTP at `/mcp`, implementing spec 2026-07-28 (stateless, `MCP-Protocol-Version` header). *Implemented* with the official MCP Python SDK (`mcp` 2.3), low-level `Server`, stateless with JSON responses. Handshake-era clients (2025-11-25 and earlier) are served too, through the SDK's stateless mode. The tool list is built from the capabilities core discovers through the `homelab_harness.capabilities` entry point.
 - **Auth:** the harness is an OAuth 2.1 resource server with protected-resource metadata (RFC 9728). It validates resource indicators (RFC 8707) and supports Client ID Metadata Documents, with DCR as a fallback for older clients.
 - **Authorization server:** an embedded single-owner server built into the harness. The owner logs in with a passkey (WebAuthn) and a recovery code, and there is no registration. Alternatively, delegate to an existing lab IdP such as Authentik or Keycloak. ADR-0007 decides which.
-- **Every authenticated principal is the owner.** Each client gets its own client ID, so audit and usage can tell Claude Code, claude.ai and ChatGPT apart. Tokens can be revoked per client (`hh clients revoke`).
+- **Every authenticated principal is the owner.** Each client gets its own client ID, so audit and usage can tell Claude Code, claude.ai and ChatGPT apart. Tokens can be revoked per client (`hh clients revoke`). *Interim:* until OAuth lands, `homelab-harness-token create|revoke|list` manages per-client bearer tokens, and every tool call is audited as `mcp.tool_call` with actor `client:<id>`.
 - **Tool annotations:**
-  - Read tools: `readOnlyHint: true`.
+  - Read tools: `readOnlyHint: true`. *Implemented:* also `idempotentHint: true`, `destructiveHint: false`, and `openWorldHint: false` for tools that only talk to registered targets (a closed set), which is every Proxmox tool.
   - `plan_*` tools: `readOnlyHint: true`, because they don't mutate targets and only write a plan row in the harness.
   - There are **no apply or approve tools**.
 
   As a result, clients' own confirmation prompts don't fire for normal use. The harness's approvals are the control, and they happen on the owner's phone.
 - **Exposure:** Cloudflare routes only `/mcp`, `/.well-known/oauth-*` and the authorization server's endpoints. Everything else returns 404 at the edge.
+
+## Connecting during Stage 1 (interim bearer tokens)
+
+> **Tailnet only.** These are long-lived owner tokens with no expiry or scopes. Until the OAuth server lands (ADR-0007), keep `/mcp` reachable only over the tailnet and never route it through the public tunnel. Revoke a token as soon as a machine is lost.
+
+1. Register targets in `HH_TARGETS_FILE` and create one token per client on the harness host ([development.md](../development.md#mcp-server)):
+   ```bash
+   homelab-harness-token create --client claude-code   # prints the token once
+   homelab-harness-token create --client codex
+   ```
+2. **Claude Code** (syntax checked against the Claude Code MCP docs on 2026-11-01):
+   ```bash
+   claude mcp add --transport http harness http://<tailnet-host>:8080/mcp \
+     --header "Authorization: Bearer <token>"
+   ```
+   Then run `/mcp` inside Claude Code to check the connection. `claude mcp add` does not validate the token.
+3. **Codex CLI** (syntax checked against the Codex MCP docs on 2026-11-01). In `~/.codex/config.toml`:
+   ```toml
+   [mcp_servers.harness]
+   url = "http://<tailnet-host>:8080/mcp"
+   bearer_token_env_var = "HARNESS_MCP_TOKEN"
+   ```
+   and export `HARNESS_MCP_TOKEN=<token>` in the shell that runs `codex`. The value is the variable's name, not the token.
+
+Results carry `structuredContent` plus a JSON text rendering. `_meta` has `homelab-harness/as_of` and `homelab-harness/untrusted`. When that flag is true, target-sourced text sits inside `untrusted` objects, and the text rendering says to treat them as data (S7). Neither client connection has been verified against a live client in this PR. The SDK's own client was run against a local server, over both protocol eras.
 
 ## Unattended automation (the harness asks an AI to do something)
 

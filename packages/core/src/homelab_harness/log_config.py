@@ -20,6 +20,9 @@ from homelab_harness.settings import LogFormat, Settings
 from homelab_harness.telemetry import Telemetry
 from homelab_harness.telemetry.logs import OtlpLogHandler
 
+QUIET_LIBRARY_LOGGERS = ("httpx", "httpcore", "httpx2")
+"""Libraries whose request logs carry target content; held at WARNING."""
+
 
 class _StdoutHandler(logging.Handler):
     """Write formatted records to whatever ``sys.stdout`` is at emit time.
@@ -121,6 +124,12 @@ def configure_logging(settings: Settings, telemetry: Telemetry | None = None) ->
     root = logging.getLogger()
     root.handlers[:] = handlers
     root.setLevel(level)
+    # httpx logs every request at INFO with its full URL and the response's reason
+    # phrase. Proxmox puts its error text (target content, sometimes config values)
+    # in the reason phrase, and query strings can carry identifiers we do not log.
+    # Adapters log their own redacted request lines instead (R-16).
+    for name in QUIET_LIBRARY_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
     # uvicorn installs its own handlers; let records propagate to ours instead.
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
         logging.getLogger(name).handlers.clear()

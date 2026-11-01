@@ -1,6 +1,6 @@
 # Extending the harness
 
-> **Status: specification.** This is the contract that makes "ask my coding agent to add X" work. The template, test kit and skill named here are built in Stage 1 (see the [roadmap](../roadmap.md)).
+> **Status: specification, partly implemented.** This is the contract that makes "ask my coding agent to add X" work. **Built:** `@read_tool`, `Capability`, `Manifest`, `ToolContext`, the `homelab_harness.capabilities` entry point, and the contract test kit for read tools ([below](#the-sdk-surface-as-built-for-read-tools)). **Not yet:** `@plan_tool`, `@step`, the template and the skill (see the [roadmap](../roadmap.md)).
 
 ## The one rule
 
@@ -30,6 +30,37 @@ evals/<name>/          # golden transcripts + injection cases for this domain
 
 Packages use the src layout like the rest of the workspace: the modules above live in `capabilities/<name>/src/homelab_harness_<name>/`, next to `tests/` and `pyproject.toml`. `manifest.toml` ships **inside** the package, so core can read it with `importlib.resources` wherever the capability is installed. `capabilities/proxmox` is the first one.
 
+## The SDK surface as built for read tools
+
+```python
+from homelab_harness_sdk import ToolContext, ToolInput, ToolOutput, Untrusted, read_tool
+
+class NodeArgs(ToolInput):            # extra="forbid": unknown arguments are rejected
+    cluster: str | None = None
+    node: str
+
+class PoolText(Untrusted):            # target-sourced text goes in an envelope (S7)
+    comment: str | None
+
+class PoolsResult(ToolOutput):        # every result carries as_of
+    pools: list[PoolText]
+
+@read_tool(name="truenas.pool.list", credential="read", title="ZFS pools")
+async def list_pools(ctx: ToolContext[TrueNasClient], args: NodeArgs) -> PoolsResult:
+    """The docstring is the tool description the model sees."""
+    async with ctx.adapter(args.cluster) as client:   # bound to the declared credential tier
+        ...
+```
+
+The package exposes `CAPABILITY = Capability(manifest=Manifest.load("homelab_harness_<name>"), target_model=…, connect=…, probe=…, tools=(…))` and registers it in `pyproject.toml`:
+
+```toml
+[project.entry-points."homelab_harness.capabilities"]
+truenas = "homelab_harness_truenas.capability:CAPABILITY"
+```
+
+`manifest.toml` lists every tool under `[tools]` with its credential tier. `Capability` refuses at import a tool without the capability prefix, a duplicate, or an undeclared tier. Core never imports the package by name, and a test enforces that.
+
 ## The SDK surface (planned, illustrative)
 
 ```python
@@ -57,6 +88,8 @@ async def create_dataset(ctx, p: DatasetCreate) -> StepResult: ...
 Core turns these into MCP tools with JSON Schemas, assigns tiers through policy, stores plans, runs approvals and jobs, and emits telemetry and audit records. The capability never sees an approval and never decides a tier, though it may *suggest* one.
 
 ## The contract test kit (applies to every capability automatically)
+
+*Built for read tools* as `homelab_harness_sdk.testing.CapabilityContract` (install `homelab-harness-sdk[testing]`). A capability's `tests/test_contract.py` subclasses it and supplies `sample_arguments`, an adapter factory, and success routes with a canary planted. The kit mocks all HTTP with respx. Implemented today: schemas, classification (read only), credentials (both ways against the manifest's `[tools]`), error mapping, redaction (results, errors and the capability's logs), no secret-named output field (R-34), and untrusted envelopes for text fields (exemptions need a written reason). Tiers, retry classes, preview and steering arrive with plan tools and steering.
 
 | Check | Fails when |
 |---|---|

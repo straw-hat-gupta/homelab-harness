@@ -120,6 +120,29 @@ class Redactor:
             return [self.scrub(v) for v in items]
         return value
 
+    def scrub_values(self, value: Any) -> Any:
+        """Mask registered secret values in nested data, leaving keys out of it.
+
+        For structured results whose shape is a published schema: key-based
+        masking would turn an integer under a key like ``token_count`` into a
+        string and break the schema, while the shape itself is already reviewed.
+
+        Args:
+            value: JSON-like nested data.
+
+        Returns:
+            A copy with every registered secret form masked inside strings.
+        """
+        if isinstance(value, str):
+            return self.scrub_text(value)
+        if isinstance(value, Mapping):
+            mapping = cast(Mapping[object, Any], value)
+            return {k: self.scrub_values(v) for k, v in mapping.items()}
+        if isinstance(value, list | tuple):
+            items = cast(Sequence[Any], value)
+            return [self.scrub_values(v) for v in items]
+        return value
+
 
 redactor = Redactor()
 """Process-wide redactor shared by logging, telemetry and error handling."""

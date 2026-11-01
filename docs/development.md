@@ -49,6 +49,7 @@ Settings come only from `HH_*` environment variables (`packages/core/src/homelab
 | `HH_OTEL_EXPORTER_OTLP_ENDPOINT` | unset | OTLP/HTTP base URL, e.g. `http://otel-collector:4318`. Unset or empty means telemetry off: no exporters, no instrumentation. See [Observability](#observability). |
 | `HH_OTEL_EXPORT_TIMEOUT_SECONDS` | `5` | Limit on one export request |
 | `HH_OTEL_METRIC_EXPORT_INTERVAL_SECONDS` | `15` | How often metrics are pushed |
+| `HH_TARGETS_FILE` | unset | **Interim** TOML list of targets per capability, with each credential's secret file. See [MCP server](#mcp-server). Unset means no targets: tools answer "no proxmox target is registered". An invalid file stops startup. |
 | `HH_CLI_URL` | `http://127.0.0.1:8080` | Where `hh` sends requests |
 
 ```bash
@@ -100,6 +101,50 @@ export HH_SECRETS_KEK_PROVIDER=file HH_SECRETS_KEK_FILE=~/.config/hh-kek
 With systemd, store the keyring as an encrypted credential (TPM2-sealed when the host has a TPM) and load it with `LoadCredentialEncrypted=hh-kek:/etc/credstore.encrypted/hh-kek`; set `HH_SECRETS_KEK_PROVIDER=systemd-creds`. This path is unverified on a real host so far.
 
 Losing the KEK loses every secret: back the keyring up separately from the database.
+
+## MCP server
+
+The harness serves MCP at `/mcp` (streamable HTTP, stateless, JSON responses). It speaks the 2026-07-28 protocol and the earlier handshake versions. It needs `HH_DATABASE_URL`, because client tokens and the audit log live in Postgres. Without a database every request gets 401.
+
+> **Interim, tailnet only.** Until the OAuth authorization server lands (ADR-0007), clients authenticate with long-lived owner bearer tokens, and targets come from a file rather than the vault. Do not expose `/mcp` publicly with this setup.
+
+**Targets.** List clusters in a TOML file and point `HH_TARGETS_FILE` at it:
+
+```toml
+[[proxmox]]
+name = "home"                                   # your label; tools take it as `cluster`
+endpoints = ["pve1.lab.example:8006"]           # reads use the first endpoint for now
+tls = { kind = "ca_bundle", path = "/etc/harness/pve-home-ca.pem" }
+# or: tls = { kind = "pinned", sha256 = "AB:CD:…" }   or: tls = { kind = "system" }
+
+[proxmox.credentials.read]
+token_id = "harness@pve!read"
+token_secret_file = "/run/secrets/pve-home-read"   # only the secret; chmod 0400
+```
+
+Each secret file must not be readable by group or others, or startup refuses it. It is read once, and its value is registered with the redactor. `/readyz` gets one check per target, `proxmox:<name>`, which reports `degraded` (never `fail`) when the cluster cannot be read.
+
+**Client tokens.** One token per client, so audit tells them apart and each can be revoked alone:
+
+```bash
+uv run homelab-harness-token create --client claude-code   # prints the token once, on stdout
+uv run homelab-harness-token create --client claude-code --rotate   # new token; the old one stops working
+uv run homelab-harness-token revoke --client claude-code
+uv run homelab-harness-token list
+```
+
+Only a SHA-256 hash of each token is stored (`mcp_clients`). In the container, run it with `docker compose -f deploy/compose.yaml exec harness homelab-harness-token create --client claude-code`.
+
+**Connecting.** See [clients.md](spec/clients.md#connecting-during-stage-1-interim-bearer-tokens) for Claude Code and Codex. To check by hand:
+
+```bash
+curl -s -X POST localhost:8080/mcp -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  -H 'MCP-Protocol-Version: 2026-07-28' -H 'Mcp-Method: tools/list' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}'
+```
+
+Every tool call writes an `mcp.tool_call` audit event (client, tool, target, outcome, duration; no arguments).
 
 ## Container
 

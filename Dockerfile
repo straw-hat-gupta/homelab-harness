@@ -15,12 +15,18 @@ COPY pyproject.toml uv.lock ./
 COPY packages/core/pyproject.toml packages/core/
 COPY packages/sdk/pyproject.toml packages/sdk/
 COPY cli/pyproject.toml cli/
+COPY capabilities/proxmox/pyproject.toml capabilities/proxmox/
+# Core does not depend on any capability; each is installed next to it and found
+# through its entry point. --inexact keeps the first package's environment.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-workspace --package homelab-harness
+    uv sync --frozen --no-dev --no-install-workspace --package homelab-harness \
+    && uv sync --frozen --no-dev --no-install-workspace --inexact --package homelab-harness-proxmox
 COPY packages packages
 COPY cli cli
+COPY capabilities capabilities
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-editable --package homelab-harness
+    uv sync --frozen --no-dev --no-editable --package homelab-harness \
+    && uv sync --frozen --no-dev --no-editable --inexact --package homelab-harness-proxmox
 
 FROM python:3.13-slim AS runtime
 RUN groupadd --system --gid 10001 harness \

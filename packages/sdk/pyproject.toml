@@ -1,11 +1,21 @@
 [project]
 name = "homelab-harness-sdk"
 version = "0.1.0"
-description = "Capability contract for homelab-harness: shared errors, tiers and retry classes."
+description = "Capability contract for homelab-harness: tools, errors, tiers, retry classes and the contract test kit."
 requires-python = ">=3.13"
 license = "MIT"
 dependencies = [
     "pydantic>=2.9",
+]
+
+[project.optional-dependencies]
+# The contract test kit (homelab_harness_sdk.testing): capabilities' test suites use it.
+testing = [
+    "pytest>=8",
+    "httpx>=0.28",
+    "respx>=0.22",
+    "structlog>=24.4",
+    "jsonschema>=4.23",
 ]
 
 [build-system]
