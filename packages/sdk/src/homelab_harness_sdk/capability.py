@@ -14,9 +14,9 @@ from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Self, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from homelab_harness_sdk.tools import ReadTool
 
@@ -26,11 +26,24 @@ ENTRY_POINT_GROUP = "homelab_harness.capabilities"
 TARGET_NAME_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.\-]{0,62}$"
 
 
+SECRET_HANDLE_PREFIX = "secret://"  # noqa: S105 - a URI scheme, not a credential
+"""Scheme of a vault handle: ``secret://<name>`` names a secret without carrying its value."""
+
+SECRET_NAME_PATTERN = r"^[a-z0-9][a-z0-9._-]{0,127}$"  # noqa: S105 - a pattern, not a credential
+"""Vault secret names: lowercase labels such as ``pve-home-read``."""
+
+_SECRET_HANDLE_PATTERN = "^secret://" + SECRET_NAME_PATTERN.removeprefix("^")
+
+
 class CredentialFile(BaseModel):
-    """Where a target's credential for one tier lives (interim, until the vault lands).
+    """Where a target's credential for one tier comes from (interim targets file).
+
+    Exactly one of ``token_secret`` and ``token_secret_file`` is set.
 
     Attributes:
         token_id: The credential's public identifier, for example ``harness@pve!read``.
+        token_secret: A vault handle, ``secret://<name>``. Core resolves it once
+            at startup through the vault.
         token_secret_file: File holding only the secret. Core reads it once at
             startup and refuses it if group or others can read it.
     """
@@ -38,7 +51,21 @@ class CredentialFile(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     token_id: str = Field(min_length=1, max_length=200)
-    token_secret_file: Path
+    token_secret: str | None = Field(default=None, pattern=_SECRET_HANDLE_PATTERN)
+    token_secret_file: Path | None = None
+
+    @model_validator(mode="after")
+    def _one_source(self) -> Self:
+        if (self.token_secret is None) == (self.token_secret_file is None):
+            raise ValueError("set exactly one of token_secret and token_secret_file")
+        return self
+
+    @property
+    def secret_name(self) -> str | None:
+        """The vault secret's name when ``token_secret`` is a handle, else ``None``."""
+        if self.token_secret is None:
+            return None
+        return self.token_secret.removeprefix(SECRET_HANDLE_PREFIX)
 
 
 class TargetConfig(BaseModel):

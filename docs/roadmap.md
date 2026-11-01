@@ -19,7 +19,7 @@ The spec is in [`docs/spec/`](spec/README.md), the decisions are in [`docs/adr/`
 | Vault crypto: envelope encryption, KEK providers, secret kinds (#22) | ✅ |
 | Observability: OTel, plus Prometheus, Tempo, Loki and Grafana (#23) | ✅ |
 | MCP server with Proxmox read tools, interim owner tokens, audit per call, contract kit | in progress |
-| Vault persistence and the `hh secret` and `hh vault` CLI | next |
+| Vault persistence and the `hh secret` and `hh vault` CLI | in review |
 | Owner OAuth: embedded authorization server ([ADR-0007](adr/0007-owner-auth.md)) | next |
 
 **Done when:**

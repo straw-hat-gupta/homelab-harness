@@ -8,6 +8,7 @@ import structlog
 
 from homelab_harness.mcp.clients import (
     TOKEN_PREFIX,
+    ClientRole,
     client_for_token,
     create_client,
     list_clients,
@@ -96,6 +97,32 @@ def test_cli_prints_the_token_once_and_revokes(env_database, client_id, capsys):
         main(["create", "--client", client_id])
     main(["revoke", "--client", client_id])
     assert f"revoked {client_id}" in capsys.readouterr().out
+
+
+async def test_roles_are_disjoint_and_survive_rotation(sessions, client_id):
+    async with sessions.begin() as session:
+        owner = await create_client(session, client_id=client_id, role=ClientRole.OWNER)
+    async with sessions() as session:
+        assert await client_for_token(session, owner) is None  # the default role is mcp
+        assert await client_for_token(session, owner, role=ClientRole.OWNER) == client_id
+    async with sessions.begin() as session:
+        with pytest.raises(Conflict, match="roles do not change"):
+            await create_client(session, client_id=client_id, rotate=True)
+    async with sessions.begin() as session:
+        rotated = await create_client(
+            session, client_id=client_id, rotate=True, role=ClientRole.OWNER
+        )
+    async with sessions() as session:
+        assert await client_for_token(session, rotated, role=ClientRole.OWNER) == client_id
+        listed = {c.client_id: c for c in await list_clients(session)}
+    assert listed[client_id].role is ClientRole.OWNER
+
+
+def test_cli_creates_owner_tokens(env_database, client_id, capsys):
+    main(["create", "--client", client_id, "--role", "owner"])
+    capsys.readouterr()
+    main(["list"])
+    assert f"{client_id}\towner\t" in capsys.readouterr().out
 
 
 def test_cli_without_database_exits_cleanly(monkeypatch):

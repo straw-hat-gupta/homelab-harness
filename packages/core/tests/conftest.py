@@ -5,13 +5,17 @@ Docker the database tests are skipped with a clear reason, except in CI, where
 a missing Docker daemon fails the run instead of silently skipping half the suite.
 """
 
+import base64
 import os
+import secrets
 import uuid
 
 import docker
 import psycopg
 import pytest
 from alembic import command
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import SecretStr
 from sqlalchemy.engine import make_url
 from testcontainers.community.postgres import PostgresContainer
@@ -84,3 +88,64 @@ async def engine(db_settings):
 @pytest.fixture
 def sessions(engine):
     return create_session_factory(engine)
+
+
+@pytest.fixture
+def fresh_migrated_url(empty_database_url):
+    """A fresh database at head, for tests that touch every row (KEK rotation)."""
+    command.upgrade(alembic_config(empty_database_url), "head")
+    return empty_database_url
+
+
+def _ssh_private_key():
+    return (
+        Ed25519PrivateKey.generate()
+        .private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.OpenSSH,
+            serialization.NoEncryption(),
+        )
+        .decode()
+    )
+
+
+def _canary(label):
+    return f"CANARY_{label}_{secrets.token_hex(10)}"
+
+
+def _kind_sample(kind):
+    match kind:
+        case "ssh_key":
+            pem = _ssh_private_key()
+            return pem, None, {"comment": "test@harness"}, pem.splitlines()[1]
+        case "password":
+            value = _canary("PW")
+            return value, None, {"username": "root", "target": "pve1.lab.invalid"}, value
+        case "api_token":
+            value = _canary("API")
+            meta = {"scheme": "bearer", "allowed_base_urls": ["https://api.example.invalid"]}
+            return value, None, meta, value
+        case "proxmox_token":
+            value = str(uuid.uuid4())
+            return value, None, {"token_id": "harness@pve!read", "cluster": "home"}, value
+        case "cloudflare_token":
+            value = _canary("CF")
+            return value, None, {"scope": "zone:example.invalid"}, value
+        case "github_token":
+            value = _canary("GH")
+            meta = {"repos": ["owner/vault"], "permissions": ["contents:write"]}
+            return value, None, meta, value
+        case "file":
+            value = _canary("FILE")
+            content = base64.b64encode(f"token: {value}\n".encode()).decode()
+            return None, {"content": content}, {"filename": "kubeconfig"}, value
+        case "kv":
+            value = _canary("KV")
+            return None, {"values": {"API_KEY": value, "OTHER": _canary("KV2")}}, {}, value
+    raise AssertionError(kind)
+
+
+@pytest.fixture
+def kind_sample():
+    """Factory: kind -> (value, fields, metadata, canary), API-shaped, canaries made at runtime."""
+    return _kind_sample

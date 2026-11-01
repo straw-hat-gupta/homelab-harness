@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added (vault persistence)
+- The vault now persists: `secrets` (plain metadata, JSONB per kind) and `secret_versions` (ciphertext, nonces, wrapped DEK, KEK id; unique per secret and version), migration `0003`. `homelab_harness.secrets.service.VaultService` creates, rotates (new version; old ones kept), describes, lists, revokes, deletes and resolves secrets, and rewraps every DEK under the current KEK. Delete crypto-shreds: every version's ciphertext and wrapped DEK is deleted. Rewrap runs one transaction per version, so it can be interrupted and rerun, and a rerun changes nothing. Every operation is audited (`secret.created`, `.rotated`, `.revoked`, `.deleted`, `.used`, `vault.kek_rotated`) with names and ids only, never values, lengths or hashes.
+- An owner REST API under `/api/secrets` and `/api/vault/rotate-kek`. It accepts only **owner-role** tokens: `homelab-harness-token create --client hh --role owner` (migration `0004` adds a `role` to client registrations; existing tokens become `mcp`). Owner tokens are refused at `/mcp` and MCP tokens at `/api`. No route returns a value, and 422 responses no longer echo rejected input.
+- `hh secret add|list|show|rotate|revoke|delete|generate` and `hh vault rotate-kek`. Values come from a hidden prompt, `--stdin` or `--from-file`; a value on the command line is refused. `hh secret generate ssh_key` creates an ed25519 key inside the harness and prints only the public key and an `authorized_keys` line (optional `from=`). `hh` reads its token from `HH_CLI_TOKEN_FILE` or `HH_CLI_TOKEN`.
+- The targets file accepts `token_secret = "secret://<name>"` in place of `token_secret_file`. Handles are resolved through the vault once at startup (audited as `secret.used`); a missing or revoked secret, or a Proxmox `token_id` that differs from the secret's, stops startup.
+- The `vault` readiness check also queries the vault's tables once the database is open, and reports how many versions are still wrapped by an older KEK.
+- Verified locally against a throwaway Postgres 17 with the env KEK provider: add, generate, rotate, KEK rotation and restart with only the new KEK, and a `secret://` target resolved at startup. Not verified with the file or systemd-creds providers, nor against a live Proxmox node.
+
+### Changed
+- The app enters its database lifespan before the MCP transport, so a startup error surfaces as itself rather than inside an exception group.
+
 ### Changed (specification re-scope)
 - The harness's goal is now the same work as a plain agent with a shell, with far fewer tokens and no discovery. It also replaces the Proxmox web UI. Recorded in ADR-0010 and ADR-0011.
 - New specs:

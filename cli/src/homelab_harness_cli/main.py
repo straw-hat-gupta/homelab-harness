@@ -11,7 +11,9 @@ from typing import Annotated
 
 import httpx
 import typer
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from homelab_harness_cli.owner_api import CliSettings
+from homelab_harness_cli.vault import secret_app, vault_app
 
 app = typer.Typer(
     name="hh",
@@ -19,20 +21,8 @@ app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
 )
-
-
-class CliSettings(BaseSettings):
-    """CLI configuration from ``HH_CLI_*`` environment variables.
-
-    Attributes:
-        url: Base URL of the harness (usually a tailnet address).
-        timeout_seconds: HTTP timeout for each request.
-    """
-
-    model_config = SettingsConfigDict(env_prefix="HH_CLI_", env_file=None, extra="ignore")
-
-    url: str = "http://127.0.0.1:8080"
-    timeout_seconds: float = 5.0
+app.add_typer(secret_app)
+app.add_typer(vault_app)
 
 
 def _cli_version() -> str:

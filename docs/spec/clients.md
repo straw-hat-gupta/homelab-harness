@@ -42,6 +42,7 @@ This is the only pattern that is clearly permitted:
    homelab-harness-token create --client claude-code   # prints the token once
    homelab-harness-token create --client codex
    ```
+   These are `mcp`-role tokens: they work only at `/mcp`. The `hh` CLI uses a separate `owner`-role token (`--role owner`), which is refused at `/mcp`, so never give one to an AI client.
 2. **Claude Code** (syntax checked against the Claude Code MCP docs on 2026-11-01):
    ```bash
    claude mcp add --transport http harness http://<tailnet-host>:8080/mcp \

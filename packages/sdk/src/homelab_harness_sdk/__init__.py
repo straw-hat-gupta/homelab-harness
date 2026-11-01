@@ -6,6 +6,8 @@ Capabilities import only from this package, never from ``homelab_harness``
 
 from homelab_harness_sdk.capability import (
     ENTRY_POINT_GROUP,
+    SECRET_HANDLE_PREFIX,
+    SECRET_NAME_PATTERN,
     Capability,
     Credential,
     CredentialFile,
@@ -35,6 +37,8 @@ from homelab_harness_sdk.tools import (
 
 __all__ = [
     "ENTRY_POINT_GROUP",
+    "SECRET_HANDLE_PREFIX",
+    "SECRET_NAME_PATTERN",
     "AmbiguousOutcome",
     "AuthRejected",
     "Capability",
