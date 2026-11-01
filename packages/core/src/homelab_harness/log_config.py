@@ -13,9 +13,12 @@ from collections.abc import MutableMapping
 from typing import Any
 
 import structlog
+from opentelemetry import trace
 
 from homelab_harness.redaction import Redactor, redactor
 from homelab_harness.settings import LogFormat, Settings
+from homelab_harness.telemetry import Telemetry
+from homelab_harness.telemetry.logs import OtlpLogHandler
 
 
 class _StdoutHandler(logging.Handler):
@@ -53,15 +56,43 @@ def redaction_processor(
     return _process
 
 
-def configure_logging(settings: Settings) -> None:
+def add_trace_context(
+    _logger: Any, _method: str, event_dict: MutableMapping[str, Any]
+) -> MutableMapping[str, Any]:
+    """Add ``trace_id`` and ``span_id`` when the event is logged inside a span.
+
+    The IDs use the W3C hex form that Tempo and Grafana search by, so a log line
+    in Loki links straight to its trace.
+    """
+    ctx = trace.get_current_span().get_span_context()
+    if ctx.is_valid:
+        event_dict.setdefault("trace_id", format(ctx.trace_id, "032x"))
+        event_dict.setdefault("span_id", format(ctx.span_id, "016x"))
+    return event_dict
+
+
+def _formatter(
+    shared: list[structlog.types.Processor], renderer: structlog.types.Processor
+) -> logging.Formatter:
+    return structlog.stdlib.ProcessorFormatter(
+        foreign_pre_chain=shared,
+        processors=[structlog.stdlib.ProcessorFormatter.remove_processors_meta, renderer],
+    )
+
+
+def configure_logging(settings: Settings, telemetry: Telemetry | None = None) -> None:
     """Configure structlog and route stdlib logging (uvicorn, libraries) through it.
 
     Args:
         settings: Process settings; uses ``log_level`` and ``log_format``.
+        telemetry: When it has a logger provider, every record is also exported
+            over OTLP, rendered as the same redacted JSON whatever ``log_format``
+            says (Loki parses JSON; console colours are for terminals).
     """
     level = logging.getLevelNamesMapping().get(settings.log_level.upper(), logging.INFO)
+    json_renderer = structlog.processors.JSONRenderer()
     renderer: structlog.types.Processor = (
-        structlog.processors.JSONRenderer()
+        json_renderer
         if settings.log_format is LogFormat.JSON
         else structlog.dev.ConsoleRenderer(colors=False)
     )
@@ -70,6 +101,7 @@ def configure_logging(settings: Settings) -> None:
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
         structlog.processors.TimeStamper(fmt="iso", utc=True),
+        add_trace_context,
         structlog.processors.format_exc_info,
         redaction_processor(),
     ]
@@ -80,17 +112,14 @@ def configure_logging(settings: Settings) -> None:
         cache_logger_on_first_use=True,
     )
     handler = _StdoutHandler()
-    handler.setFormatter(
-        structlog.stdlib.ProcessorFormatter(
-            foreign_pre_chain=shared,
-            processors=[
-                structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-                renderer,
-            ],
+    handler.setFormatter(_formatter(shared, renderer))
+    handlers: list[logging.Handler] = [handler]
+    if telemetry is not None and telemetry.logger_provider is not None:
+        handlers.append(
+            OtlpLogHandler(telemetry.logger_provider, _formatter(shared, json_renderer))
         )
-    )
     root = logging.getLogger()
-    root.handlers[:] = [handler]
+    root.handlers[:] = handlers
     root.setLevel(level)
     # uvicorn installs its own handlers; let records propagate to ours instead.
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):

@@ -10,7 +10,7 @@ from __future__ import annotations
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import Field, SecretStr
+from pydantic import Field, HttpUrl, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -47,6 +47,14 @@ class Settings(BaseSettings):
         database_connect_timeout_seconds: Limit on opening one connection.
         database_statement_timeout_ms: Server-side limit on any one statement,
             so a stuck query cannot hold a connection forever.
+        otel_exporter_otlp_endpoint: Base URL of an OTLP/HTTP receiver, usually
+            the collector (``http://otel-collector:4318``). Traces, metrics and
+            logs go to ``/v1/traces``, ``/v1/metrics`` and ``/v1/logs`` under it.
+            When unset or empty, telemetry is off: no providers, no exporters, no
+            instrumentation.
+        otel_export_timeout_seconds: Limit on one export request, so a slow
+            collector cannot stall the export threads.
+        otel_metric_export_interval_seconds: How often metrics are pushed.
     """
 
     model_config = SettingsConfigDict(
@@ -66,6 +74,15 @@ class Settings(BaseSettings):
     database_pool_size: int = Field(default=5, ge=1, le=50)
     database_connect_timeout_seconds: int = Field(default=5, ge=1, le=60)
     database_statement_timeout_ms: int = Field(default=15_000, ge=100, le=600_000)
+    otel_exporter_otlp_endpoint: HttpUrl | None = None
+    otel_export_timeout_seconds: int = Field(default=5, ge=1, le=60)
+    otel_metric_export_interval_seconds: int = Field(default=15, ge=1, le=3600)
+
+    @field_validator("otel_exporter_otlp_endpoint", mode="before")
+    @classmethod
+    def _empty_endpoint_is_unset(cls, value: object) -> object:
+        # Compose passes an unset variable through as "", which must mean "off".
+        return None if value == "" else value
 
 
 @lru_cache(maxsize=1)

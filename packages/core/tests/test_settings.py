@@ -30,3 +30,20 @@ def test_invalid_port_is_rejected(monkeypatch):
     monkeypatch.setenv("HH_PORT", "70000")
     with pytest.raises(ValidationError):
         Settings()
+
+
+@pytest.mark.parametrize("value", ["", None])
+def test_empty_or_missing_otlp_endpoint_means_telemetry_off(monkeypatch, value):
+    if value is None:
+        monkeypatch.delenv("HH_OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+    else:
+        monkeypatch.setenv("HH_OTEL_EXPORTER_OTLP_ENDPOINT", value)
+    assert Settings().otel_exporter_otlp_endpoint is None
+
+
+def test_otlp_endpoint_must_be_an_http_url(monkeypatch):
+    monkeypatch.setenv("HH_OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4318")
+    with pytest.raises(ValidationError):
+        Settings()
+    monkeypatch.setenv("HH_OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318")
+    assert str(Settings().otel_exporter_otlp_endpoint) == "http://otel-collector:4318/"

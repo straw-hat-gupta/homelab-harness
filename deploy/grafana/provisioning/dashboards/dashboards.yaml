@@ -1,0 +1,12 @@
+# Load the versioned dashboards from deploy/grafana/dashboards/. They are
+# read-only in Grafana: change the JSON in the repo instead.
+apiVersion: 1
+
+providers:
+  - name: homelab-harness
+    folder: homelab-harness
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

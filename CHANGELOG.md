@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added (observability)
+- OpenTelemetry traces, metrics and logs over OTLP/HTTP, turned on by `HH_OTEL_EXPORTER_OTLP_ENDPOINT` (off when unset or empty), with `HH_OTEL_EXPORT_TIMEOUT_SECONDS` and `HH_OTEL_METRIC_EXPORT_INTERVAL_SECONDS`. Spans and metrics come from FastAPI requests, the app engine's queries and outgoing httpx calls.
+- Every span is redacted before export: span names, attributes, events, links and status pass the shared redactor (S9, R-16).
+- Log events logged inside a span carry `trace_id` and `span_id`. With telemetry on, the same redacted JSON events are also exported over OTLP.
+- `deploy/compose.yaml` gains an `observability` profile: OTel Collector, Prometheus, Tempo, Loki and Grafana, all pinned, with UIs on loopback only. Grafana needs `HH_GRAFANA_ADMIN_PASSWORD` (no default, anonymous access off). It provisions the datasources and a **Harness overview** dashboard: request rate, latency, 5xx share, readiness, pool, logs and recent traces.
+- The compose `harness` healthcheck now probes `/readyz` instead of `/healthz`.
+- The image sets `OTEL_SEMCONV_STABILITY_OPT_IN=http`, so it emits the stable HTTP metric names.
+
 ### Added (database)
 - Postgres persistence for the core: an async SQLAlchemy engine (psycopg 3) with explicit pool limits and a statement timeout, configured by `HH_DATABASE_URL` and `HH_DATABASE_*`. The URL's password is registered with the redactor at startup.
 - Alembic migrations shipped inside the package, run with the new `homelab-harness-migrate` command (`upgrade`, `downgrade`, `current`, `check`, `revision`).

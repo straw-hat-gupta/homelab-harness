@@ -1,9 +1,16 @@
 # Single-host deployment. Stage 1 services land here incrementally:
-# Postgres (here), otel-collector + Grafana stack (observability PR), ntfy.
+# Postgres, the observability stack (profile `observability`), then ntfy.
 #
 #   export HH_POSTGRES_PASSWORD="$(openssl rand -hex 24)"   # URL-safe; keep it somewhere safe
 #   docker compose -f deploy/compose.yaml up -d --build
 #   hh health --url http://127.0.0.1:8080
+#
+# With the bundled Grafana stack (UIs on 127.0.0.1 only):
+#
+#   export HH_GRAFANA_ADMIN_PASSWORD="$(openssl rand -hex 16)"
+#   export HH_OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+#   docker compose -f deploy/compose.yaml --profile observability up -d --build
+#   # Grafana http://127.0.0.1:3000 (admin), Prometheus http://127.0.0.1:9090
 name: homelab-harness
 
 x-harness-image: &harness-image
@@ -57,14 +64,121 @@ services:
       HH_ENV: ${HH_ENV:-prod}
       HH_LOG_LEVEL: ${HH_LOG_LEVEL:-INFO}
       HH_DATABASE_URL: postgresql://harness:${HH_POSTGRES_PASSWORD:?set HH_POSTGRES_PASSWORD}@postgres:5432/harness
+      # Empty means telemetry off. Set it to http://otel-collector:4318 with the
+      # observability profile, or to an OTLP/HTTP collector the lab already runs.
+      HH_OTEL_EXPORTER_OTLP_ENDPOINT: ${HH_OTEL_EXPORTER_OTLP_ENDPOINT:-}
     depends_on:
       postgres:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    # Readiness, not just liveness: `docker ps` shows the harness unhealthy when
+    # its database is down, and the regular probe gives the overview dashboard
+    # its readiness panel. The image's own HEALTHCHECK stays on /healthz.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/readyz', timeout=3).status == 200 else 1)"
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
     # Bind to loopback by default; expose on the tailnet with `tailscale serve`.
     ports:
       - "127.0.0.1:8080:8080"
 
+  # --- Observability (profile `observability`) ---------------------------------
+  # OTLP in, then Prometheus, Tempo and Loki, viewed in Grafana (ADR-0008).
+  # Skip the profile if the lab already runs a stack; see docs/development.md.
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.164.0
+    profiles: [observability]
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel/collector.yaml:/etc/otelcol/config.yaml:ro
+    environment:
+      # Defaults are the bundled backends; override to use an existing stack.
+      HH_OTELCOL_PROMETHEUS_OTLP_URL: ${HH_OTELCOL_PROMETHEUS_OTLP_URL:-http://prometheus:9090/api/v1/otlp/v1/metrics}
+      HH_OTELCOL_TEMPO_OTLP_GRPC: ${HH_OTELCOL_TEMPO_OTLP_GRPC:-tempo:4317}
+      HH_OTELCOL_LOKI_OTLP_URL: ${HH_OTELCOL_LOKI_OTLP_URL:-http://loki:3100/otlp/v1/logs}
+    # Published on loopback so AI clients on this host (Claude Code, Codex) can
+    # send their own OTLP telemetry; the harness uses the compose network.
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    profiles: [observability]
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-otlp-receiver
+    volumes:
+      - ./prometheus/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  tempo:
+    image: grafana/tempo:2.10.10
+    profiles: [observability]
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    # Not published: Grafana queries it over the compose network.
+
+  loki:
+    image: grafana/loki:3.7.9
+    profiles: [observability]
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./loki/loki.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+    # Not published: Grafana queries it over the compose network.
+
+  grafana:
+    image: grafana/grafana:13.2.5
+    profiles: [observability]
+    restart: unless-stopped
+    # No default password. `${VAR:?}` would also break `docker compose up`
+    # without this profile (compose interpolates every service), so Grafana
+    # itself refuses to start without one instead of falling back to "admin".
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'test -n "$$GF_SECURITY_ADMIN_PASSWORD" || { echo "set HH_GRAFANA_ADMIN_PASSWORD" >&2; exit 1; }; exec /run.sh'
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${HH_GRAFANA_ADMIN_PASSWORD:-}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+    ports:
+      - "127.0.0.1:3000:3000"
+
 volumes:
   pgdata:
+  prometheus-data:
+  tempo-data:
+  loki-data:
+  grafana-data:

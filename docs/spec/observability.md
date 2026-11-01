@@ -1,6 +1,22 @@
 # Observability
 
-> **Status: specification.** It describes what the harness will emit and how the owner will see it.
+> **Status: partly implemented.** It describes what the harness will emit and how the owner will see it. [What exists now](#implementation-status) is listed below; everything else is still specification.
+
+## Implementation status
+
+| Piece | State |
+|---|---|
+| OTel SDK: traces, metrics and logs over OTLP/HTTP, off unless `HH_OTEL_EXPORTER_OTLP_ENDPOINT` is set (`homelab_harness.telemetry`) | Implemented |
+| Resource: `service.name`, `service.version`, `deployment.environment.name` | Implemented |
+| HTTP server spans and `http.server.*` metrics (FastAPI), app-engine query spans (SQLAlchemy), outgoing `http.client.*` (httpx) | Implemented. Stable HTTP conventions via `OTEL_SEMCONV_STABILITY_OPT_IN=http` in the image. DBOS's own engine is not instrumented. |
+| Redaction of span names, attributes, events, links and status (span processor) | Implemented, canary-tested |
+| `trace_id`/`span_id` on log events inside a span; logs exported over OTLP to Loki | Implemented |
+| Harness spans (`mcp.tool`, `plan.create`, job steps, adapter calls, verification) | Planned, with those features |
+| Harness metrics (`harness_*` below) | Names fixed in `homelab_harness.telemetry.metrics`; no producers yet |
+| Compose stack: Collector, Prometheus, Tempo, Loki, Grafana (profile `observability`) | Implemented |
+| Dashboards | Harness overview: HTTP traffic, readiness, pool, logs, traces. The rest are planned. |
+| Alerts, client usage, `hh doctor` | Planned |
+| `docs/telemetry-attributes.md` | Planned, with the first `mcp.*`/`harness.*` attributes |
 
 ## Goals
 
@@ -22,13 +38,13 @@
 
 ## Redaction
 
-- A structlog processor and an OTel span processor drop or mask keys matching the secret patterns (`token`, `secret`, `password`, `authorization`, `ticket`, `cookie`, `PVEAPIToken`, `ssh-…`). They also mask any value matching a vault-registered secret.
+- A structlog processor and an OTel span processor (both implemented) drop or mask keys matching the secret patterns (`token`, `secret`, `password`, `authorization`, `ticket`, `cookie`, `PVEAPIToken`, `ssh-…`). They also mask any value matching a vault-registered secret.
 - Target-sourced text (descriptions, logs, note bodies, command output) is never put in span attributes or logs. Only lengths and hashes are recorded.
 - The contract test kit plants a canary secret and a canary body in fixtures for every capability. It asserts that neither appears in captured logs, spans, previews, error responses or audit rows.
 
 ## Dashboards (shipped in `deploy/grafana/`)
 
-1. **Harness overview:** tool calls by client, plans by tier and decision, the pending-approvals count, job outcomes (with `uncertain` highlighted), adapter error rates, inventory freshness.
+1. **Harness overview** (`harness-overview.json`): tool calls by client, plans by tier and decision, the pending-approvals count, job outcomes (with `uncertain` highlighted), adapter error rates, inventory freshness. Shipped so far: request rate, latency, 5xx share, readiness (from the compose `/readyz` healthcheck), the app's database pool, logs and recent traces.
 2. **Job explorer:** a table of recent jobs linking to Tempo traces and Proxmox task logs.
 3. **Client usage:** see below.
 4. **Lab health:** node CPU, memory and disk, ZFS pool state, backup age per guest, and tunnel status, from inventory plus Proxmox RRD or Prometheus node metrics.
