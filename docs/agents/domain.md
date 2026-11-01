@@ -12,7 +12,7 @@ If any of these files don't exist, **proceed silently**. Don't flag their absenc
 
 ## File structure
 
-**This repo is single-context**: one `GLOSSARY.md` and one `docs/adr/` at the root, covering all Django apps. Neither exists yet; `/domain-modeling` creates them when the first term or decision is settled.
+**This repo is single-context**: one `GLOSSARY.md` and one `docs/adr/` at the root, covering the whole project. Neither exists yet; `/domain-modeling` creates them when the first term or decision is settled.
 
 Single-context repo (this layout):
 
