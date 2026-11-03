@@ -73,6 +73,8 @@ class Settings(BaseSettings):
         otel_export_timeout_seconds: Limit on one export request, so a slow
             collector cannot stall the export threads.
         otel_metric_export_interval_seconds: How often metrics are pushed.
+        ui_dir: The web UI's build directory (``ui/dist``), served at ``/``.
+            When unset, no UI is served; the image sets it.
     """
 
     model_config = SettingsConfigDict(
@@ -104,6 +106,7 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: HttpUrl | None = None
     otel_export_timeout_seconds: int = Field(default=5, ge=1, le=60)
     otel_metric_export_interval_seconds: int = Field(default=15, ge=1, le=3600)
+    ui_dir: Path | None = None
 
     @field_validator("otel_exporter_otlp_endpoint", mode="before")
     @classmethod

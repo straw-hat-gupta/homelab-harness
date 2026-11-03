@@ -1,6 +1,6 @@
 # Web UI: an AI-native replacement for the Proxmox GUI
 
-> **Status: specification.** Nothing here is implemented yet. The UI is part of v1, starts small and grows in planned increments (below). It is designed from the first version so that adding functionality means **registering an extension**, not rewriting pages. This document replaces the earlier "UI vision (post-v1)".
+> **Status: UI-1 foundation implemented** (the app shell, the registries below, the side tree, object pages with Summary and a placeholder Tasks tab, the `stat`, `table`, `status-list`, `markdown` and `log-tail` templates, ⌘K search, the theme switch, and serving by FastAPI). Its data comes from an **interim read façade** (`GET /api/ui/tree`, `GET /api/ui/objects/{type}/{id}/summary`) over the Proxmox read tools; the lab state replaces it in Stage 2. Not yet built: Logs, SSE live updates, passkey login (an owner token is asked for meanwhile), and everything from UI-2 on. How to extend it: [ui/README.md](../../ui/README.md). The UI is part of v1, starts small and grows in planned increments (below). It is designed from the first version so that adding functionality means **registering an extension**, not rewriting pages. This document replaces the earlier "UI vision (post-v1)".
 
 ## Goals
 

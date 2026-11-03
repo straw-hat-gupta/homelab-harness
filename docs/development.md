@@ -3,6 +3,7 @@
 ## Requirements
 
 - [uv](https://docs.astral.sh/uv/). CI pins 0.7.10, and newer versions work. uv installs Python 3.13 if it's missing.
+- Node 26 (the LTS line) and [pnpm](https://pnpm.io/) 12.16.1 for the web UI in `ui/`. pnpm is pinned in `ui/package.json` (`packageManager`); install it with `npm install -g pnpm@12.16.1`.
 - Docker, for the image and Compose, and for the database tests: they start a throwaway Postgres 17 with [testcontainers](https://testcontainers-python.readthedocs.io/). Without Docker they are skipped with a message; in CI (`CI` set) they fail instead.
 
 ## Workspace
@@ -50,6 +51,7 @@ Settings come only from `HH_*` environment variables (`packages/core/src/homelab
 | `HH_OTEL_EXPORT_TIMEOUT_SECONDS` | `5` | Limit on one export request |
 | `HH_OTEL_METRIC_EXPORT_INTERVAL_SECONDS` | `15` | How often metrics are pushed |
 | `HH_TARGETS_FILE` | unset | **Interim** TOML list of targets per capability, with each credential's vault handle or secret file. See [MCP server](#mcp-server). Unset means no targets: tools answer "no proxmox target is registered". An invalid file, or a handle naming a missing or revoked secret, stops startup. |
+| `HH_UI_DIR` | unset | The web UI's build directory (`ui/dist`), served at `/`. Unset means no UI. The image sets `/opt/harness/ui`. A directory without `index.html` stops startup. See [Web UI](#web-ui). |
 | `HH_CLI_URL` | `http://127.0.0.1:8080` | Where `hh` sends requests |
 | `HH_CLI_TOKEN_FILE` | unset | File holding only the owner token `hh` sends to `/api` (chmod 0600; looser modes are refused). See [Vault](#vault). |
 | `HH_CLI_TOKEN` | unset | The owner token itself, when no file is set. Child processes inherit it, so prefer the file. |
@@ -192,6 +194,30 @@ curl -s -X POST localhost:8080/mcp -H "Authorization: Bearer $TOKEN" \
 
 Every tool call writes an `mcp.tool_call` audit event (client, tool, target, outcome, duration; no arguments).
 
+## Web UI
+
+The React UI lives in `ui/` ([ui.md](spec/ui.md); how to extend it: [ui/README.md](../ui/README.md)). One lockfile (`ui/pnpm-lock.yaml`) is committed. pnpm was chosen over npm for its strict `node_modules` (no undeclared imports), its default minimum release age on new versions, and its speed.
+
+```bash
+cd ui
+pnpm install --frozen-lockfile
+pnpm dev            # Vite on :5173, proxying /api, /healthz, /readyz and /openapi.json to the harness
+pnpm lint           # eslint (typescript-eslint strict, react-hooks) and prettier --check
+pnpm typecheck      # tsc -b, strict
+pnpm test           # vitest + Testing Library, including the registry contract tests and axe
+pnpm build          # ui/dist, served by the harness with HH_UI_DIR=ui/dist
+pnpm e2e            # Playwright smoke: starts the harness serving ui/dist (needs a build)
+pnpm gen:api        # regenerate src/api/schema.gen.ts from the app's OpenAPI document
+```
+
+**Dev loop.** Run the harness (`HH_ENV=dev uv run homelab-harness`, with a database and targets file for real data), then `pnpm dev` and open `http://localhost:5173`. `HH_DEV_HARNESS_URL` points the proxy elsewhere (default `http://127.0.0.1:8080`). The page asks for an owner token on the first 401 and keeps it in `sessionStorage` for the tab. **Interim**, until passkey login (ADR-0007).
+
+**Read façade (interim).** Until the Stage 2 lab state exists, the UI reads two owner-only routes: `GET /api/ui/tree` (clusters, nodes, guests, storages) and `GET /api/ui/objects/{type}/{id}/summary`. They call the Proxmox read tools live, through capability discovery (core never imports the capability), and write one `ui.read` audit event per request. The lab state will back them.
+
+**API types.** `pnpm gen:api` runs `scripts/export_openapi.py`, which writes the same document `GET /openapi.json` serves (built in the test environment, so no server is needed), then `openapi-typescript`. Commit the result; CI fails when it or the generated route tree is stale.
+
+**Serving.** With `HH_UI_DIR` set, FastAPI serves the build at `/`: `/assets/*` (hashed) is `immutable` for a year, everything else is `no-cache`, and unknown paths fall back to `index.html` for client routes, except under `/api`, `/mcp`, `/healthz`, `/readyz`, `/docs`, `/openapi.json` and `/.well-known`, which stay JSON 404s. UI responses carry a Content-Security-Policy that allows same-origin scripts only (no inline script) and no framing; inline styles are allowed because Radix's scroll lock injects a `<style>` element.
+
 ## Container
 
 ```bash
@@ -208,7 +234,7 @@ The `observability` profile adds the Grafana stack; see [Observability](#observa
 
 The password is spliced into `HH_DATABASE_URL`, so use a URL-safe value; hex is.
 
-The image is a two-stage uv build. It runs as uid 10001 with a read-only root filesystem and all capabilities dropped, and has a `HEALTHCHECK` on `/healthz`. CI builds it and checks `/healthz` on every PR. `release.yml` publishes `ghcr.io/straw-hat-gupta/homelab-harness` (`edge` from `main`, semver tags on releases) with SBOM and provenance.
+The image is a three-stage build: Node 26 builds `ui/dist` with pnpm, uv installs the locked Python packages, and the slim runtime gets only the virtualenv and `ui/dist` (no Node). It runs as uid 10001 with a read-only root filesystem and all capabilities dropped, and has a `HEALTHCHECK` on `/healthz`. CI builds it and checks `/healthz` on every PR. `release.yml` publishes `ghcr.io/straw-hat-gupta/homelab-harness` (`edge` from `main`, semver tags on releases) with SBOM and provenance.
 
 ## Observability
 
@@ -263,7 +289,8 @@ Without the profile, nothing changes: leave `HH_OTEL_EXPORTER_OTLP_ENDPOINT` uns
 |---|---|
 | `lint` | ruff check, ruff format, pyright strict |
 | `test` | pytest with coverage, against Postgres 17 in testcontainers (migration round trip and `alembic check` drift test included) |
-| `audit` | `pip-audit --strict` against the exported runtime lock (R-26) |
+| `audit` | `pip-audit --strict` against the exported runtime lock (R-26), and `pnpm audit --prod --audit-level high` for the UI's production dependencies |
+| `ui` | pnpm install with the frozen lockfile, lint, typecheck, vitest, build, generated API types and route tree up to date, and the Playwright smoke test against the harness serving the build (API answered from fixtures) |
 | `docker` | The compose file is valid with and without the `observability` profile; the image builds and serves `/healthz` as a non-root, read-only container |
 | `docs` | Relative Markdown links resolve |
 | `secrets` | gitleaks over the full history |

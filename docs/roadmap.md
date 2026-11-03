@@ -51,6 +51,7 @@ Daily value: open the harness UI instead of the Proxmox UI to look at the lab. A
 - Profile inference tests across lab shapes.
 
 **UI-1 and UI-2** ([ui.md](spec/ui.md))
+- ✅ UI-1 foundation: the shell, the registries, the side tree, Summary and Tasks tabs, five templates, ⌘K, an interim read façade over the Proxmox tools, serving and CI.
 - **Shell:** the app shell with its registries (objects, tabs, routes, templates); the side tree; object pages for Summary, Tasks and Logs; search; SSE; passkey login.
 - **Widgets:** the widget templates, the home dashboard and top-bar widgets, and `ui.layout.plan_update`.
 
