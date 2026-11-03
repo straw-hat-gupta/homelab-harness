@@ -2,8 +2,12 @@
 
 Runs on the harness host (or in its container) against ``HH_DATABASE_URL``. The
 token is printed once, on stdout, and only its hash is stored. ``--role owner``
-creates the token ``hh`` uses for the owner API; the default role is ``mcp``. Interim until
-the OAuth authorization server lands (ADR-0007); tailnet use only.
+creates the token ``hh`` uses for the owner API; the default role is ``mcp``.
+
+MCP-role tokens are the legacy way in, accepted at ``/mcp`` only while
+``HH_MCP_LEGACY_TOKENS`` is true; OAuth (ADR-0007) replaces them. ``list`` and
+``revoke`` also cover OAuth clients (by the id ``list`` shows), so a lost
+machine can be cut off from the host even when ``hh`` is not at hand.
 """
 
 from __future__ import annotations
@@ -12,11 +16,13 @@ import argparse
 import asyncio
 import sys
 from collections.abc import Sequence
+from datetime import UTC, datetime
 
+from homelab_harness.auth.registry import list_all_clients, revoke_any_client
 from homelab_harness.db.engine import create_engine, create_session_factory
 from homelab_harness.db.url import parse_database_url
 from homelab_harness.log_config import configure_logging
-from homelab_harness.mcp.clients import ClientRole, create_client, list_clients, revoke_client
+from homelab_harness.mcp.clients import ClientRole, create_client
 from homelab_harness.redaction import redactor
 from homelab_harness.settings import Settings, get_settings
 from homelab_harness_sdk.errors import HarnessError
@@ -40,9 +46,9 @@ def _parser() -> argparse.ArgumentParser:
         default=ClientRole.MCP.value,
         help="mcp (an AI client, /mcp only) or owner (the hh CLI, /api only); default mcp",
     )
-    revoke = sub.add_parser("revoke", help="revoke a client's token")
-    revoke.add_argument("--client", required=True)
-    sub.add_parser("list", help="list registered clients")
+    revoke = sub.add_parser("revoke", help="revoke a client's token or an OAuth client's grants")
+    revoke.add_argument("--client", required=True, help="an id as shown by list")
+    sub.add_parser("list", help="list client tokens and OAuth clients")
     return parser
 
 
@@ -59,13 +65,15 @@ async def _run(settings: Settings, args: argparse.Namespace) -> str:
                         role=ClientRole(args.role),
                     )
                 case "revoke":
-                    await revoke_client(session, client_id=args.client)
-                    return f"revoked {args.client}"
+                    count = await revoke_any_client(
+                        session, client_id=args.client, now=datetime.now(UTC)
+                    )
+                    return f"revoked {args.client} ({count})"
                 case _:
-                    rows = await list_clients(session)
+                    rows = await list_all_clients(session)
                     lines = [
-                        f"{r.client_id}\t{r.role}\tcreated {r.created_at.isoformat()}\t"
-                        + (f"revoked {r.revoked_at.isoformat()}" if r.revoked_at else "active")
+                        f"{r.id}\t{r.kind}\tcreated {r.created_at.isoformat()}\t"
+                        + (f"active ({r.active})" if r.active else "revoked")
                         for r in rows
                     ]
                     return "\n".join(lines) or "no clients"

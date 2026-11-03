@@ -1,9 +1,11 @@
-"""Owner authentication for the REST API under ``/api`` (interim, until the OAuth server lands).
+"""Owner authentication for the REST API under ``/api``: owner-role bearer tokens.
 
 ``hh`` sends an owner bearer token, created with
 ``homelab-harness-token create --client <name> --role owner``. MCP tokens are
 refused here, and owner tokens are refused at ``/mcp``, so a token handed to an
-AI client can never manage the vault. Tailnet only, like the MCP tokens.
+AI client can never manage the vault, and OAuth access tokens (which only
+``/mcp`` accepts) are refused here too. Tailnet only. A device-flow token from
+the authorization server (ADR-0007) is the planned replacement.
 """
 
 from __future__ import annotations

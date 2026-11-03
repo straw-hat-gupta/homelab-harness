@@ -5,16 +5,23 @@ Docker the database tests are skipped with a clear reason, except in CI, where
 a missing Docker daemon fails the run instead of silently skipping half the suite.
 """
 
+import asyncio
 import base64
+import contextlib
+import hashlib
+import json
 import os
 import secrets
+import struct
 import uuid
 
+import cbor2
 import docker
 import psycopg
 import pytest
 from alembic import command
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import SecretStr
 from sqlalchemy.engine import make_url
@@ -149,3 +156,123 @@ def _kind_sample(kind):
 def kind_sample():
     """Factory: kind -> (value, fields, metadata, canary), API-shaped, canaries made at runtime."""
     return _kind_sample
+
+
+def _b64u(raw):
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+
+class SoftAuthenticator:
+    """A software passkey: real P-256 keys and WebAuthn encodings, so py_webauthn verifies it.
+
+    Registration uses the ``none`` attestation format; assertions are signed over
+    ``authenticatorData || SHA-256(clientDataJSON)`` as the spec requires.
+    """
+
+    def __init__(self, *, origin, user_verified=True):
+        self.origin = origin
+        self.key = ec.generate_private_key(ec.SECP256R1())
+        self.credential_id = secrets.token_bytes(32)
+        self.sign_count = 0
+        self.flags_uv = 0x04 if user_verified else 0
+
+    def _cose_key(self):
+        numbers = self.key.public_key().public_numbers()
+        return cbor2.dumps(
+            {
+                1: 2,
+                3: -7,
+                -1: 1,
+                -2: numbers.x.to_bytes(32, "big"),
+                -3: numbers.y.to_bytes(32, "big"),
+            }
+        )
+
+    def _client_data(self, kind, challenge, origin):
+        data = {"type": kind, "challenge": challenge, "origin": origin or self.origin}
+        return json.dumps({**data, "crossOrigin": False}).encode()
+
+    def register(self, options, *, origin=None):
+        client_data = self._client_data("webauthn.create", options["challenge"], origin)
+        rp_hash = hashlib.sha256(options["rp"]["id"].encode()).digest()
+        auth_data = (
+            rp_hash
+            + bytes([0x01 | self.flags_uv | 0x40])  # user present, verified, attested data
+            + struct.pack(">I", 0)
+            + bytes(16)  # AAGUID
+            + struct.pack(">H", len(self.credential_id))
+            + self.credential_id
+            + self._cose_key()
+        )
+        attestation = cbor2.dumps({"fmt": "none", "attStmt": {}, "authData": auth_data})
+        return {
+            "id": _b64u(self.credential_id),
+            "rawId": _b64u(self.credential_id),
+            "type": "public-key",
+            "response": {
+                "clientDataJSON": _b64u(client_data),
+                "attestationObject": _b64u(attestation),
+                "transports": ["internal"],
+            },
+            "clientExtensionResults": {},
+        }
+
+    def assertion(self, options, *, origin=None, tamper=False):
+        self.sign_count += 1
+        client_data = self._client_data("webauthn.get", options["challenge"], origin)
+        rp_hash = hashlib.sha256(options["rpId"].encode()).digest()
+        auth_data = rp_hash + bytes([0x01 | self.flags_uv]) + struct.pack(">I", self.sign_count)
+        signature = self.key.sign(
+            auth_data + hashlib.sha256(client_data).digest(), ec.ECDSA(hashes.SHA256())
+        )
+        if tamper:
+            signature = signature[:-1] + bytes([signature[-1] ^ 1])
+        return {
+            "id": _b64u(self.credential_id),
+            "rawId": _b64u(self.credential_id),
+            "type": "public-key",
+            "response": {
+                "clientDataJSON": _b64u(client_data),
+                "authenticatorData": _b64u(auth_data),
+                "signature": _b64u(signature),
+                "userHandle": None,
+            },
+            "clientExtensionResults": {},
+        }
+
+
+@pytest.fixture
+def soft_authenticator():
+    """The software passkey class: ``soft_authenticator(origin=...)``."""
+    return SoftAuthenticator
+
+
+@pytest.fixture
+def serve_app():
+    """Run an app's lifespan in a task of its own (the MCP transport needs one task).
+
+    Usage: ``async with serve_app(app): ...``.
+    """
+
+    @contextlib.asynccontextmanager
+    async def serve(application):
+        started, stop = asyncio.Event(), asyncio.Event()
+
+        async def run():
+            async with application.router.lifespan_context(application):
+                started.set()
+                await stop.wait()
+
+        runner = asyncio.create_task(run())
+        waiter = asyncio.create_task(started.wait())
+        await asyncio.wait({runner, waiter}, return_when="FIRST_COMPLETED")
+        if runner.done():
+            waiter.cancel()
+            runner.result()
+        try:
+            yield application
+        finally:
+            stop.set()
+            await runner
+
+    return serve

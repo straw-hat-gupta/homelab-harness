@@ -14,6 +14,8 @@ from pathlib import Path
 from pydantic import Field, HttpUrl, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "[::1]"})
+
 
 class Environment(StrEnum):
     """Deployment environment; affects only defaults and warnings, never safety rules."""
@@ -73,6 +75,22 @@ class Settings(BaseSettings):
         otel_export_timeout_seconds: Limit on one export request, so a slow
             collector cannot stall the export threads.
         otel_metric_export_interval_seconds: How often metrics are pushed.
+        public_url: The harness's own base URL as clients reach it, for example
+            ``https://harness.<tailnet>.ts.net``. It is the OAuth issuer, the
+            passkey relying party and the origin of the MCP resource
+            (``<public_url>/mcp``). Must be HTTPS unless the host is loopback.
+            When unset, the owner login and OAuth endpoints are off and ``/mcp``
+            accepts only legacy bearer tokens.
+        mcp_legacy_tokens: Whether ``/mcp`` still accepts the interim
+            ``homelab-harness-token`` bearer tokens. Default true for now; it
+            will default to false once the OAuth clients are verified live.
+        oauth_access_token_seconds: Lifetime of an OAuth access token.
+        oauth_refresh_token_seconds: Lifetime of a refresh token (rotated on use).
+        oauth_dcr_enabled: Accept Dynamic Client Registration at
+            ``/oauth/register`` (the deprecated fallback to client ID metadata
+            documents). Registered clients still need the owner's consent.
+        owner_session_idle_seconds: An owner session ends after this long unused.
+        owner_session_max_seconds: An owner session ends this long after login.
     """
 
     model_config = SettingsConfigDict(
@@ -104,12 +122,33 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: HttpUrl | None = None
     otel_export_timeout_seconds: int = Field(default=5, ge=1, le=60)
     otel_metric_export_interval_seconds: int = Field(default=15, ge=1, le=3600)
+    public_url: HttpUrl | None = None
+    mcp_legacy_tokens: bool = True
+    oauth_access_token_seconds: int = Field(default=900, ge=60, le=3600)
+    oauth_refresh_token_seconds: int = Field(default=30 * 86400, ge=3600, le=90 * 86400)
+    oauth_dcr_enabled: bool = True
+    owner_session_idle_seconds: int = Field(default=900, ge=60, le=86400)
+    owner_session_max_seconds: int = Field(default=12 * 3600, ge=300, le=7 * 86400)
 
-    @field_validator("otel_exporter_otlp_endpoint", mode="before")
+    @field_validator("otel_exporter_otlp_endpoint", "public_url", mode="before")
     @classmethod
     def _empty_endpoint_is_unset(cls, value: object) -> object:
         # Compose passes an unset variable through as "", which must mean "off".
         return None if value == "" else value
+
+    @field_validator("public_url")
+    @classmethod
+    def _public_url_is_an_origin(cls, value: HttpUrl | None) -> HttpUrl | None:
+        if value is None:
+            return None
+        if value.path not in (None, "", "/") or value.query or value.fragment:
+            raise ValueError("public_url must be an origin, without a path, query or fragment")
+        if value.username or value.password:
+            raise ValueError("public_url must not contain credentials")
+        # OAuth 2.1 and WebAuthn both need a secure context: HTTPS, or loopback in dev.
+        if value.scheme != "https" and value.host not in _LOOPBACK_HOSTS:
+            raise ValueError("public_url must use https unless the host is loopback")
+        return value
 
 
 @lru_cache(maxsize=1)

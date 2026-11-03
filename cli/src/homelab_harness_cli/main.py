@@ -12,6 +12,7 @@ from typing import Annotated
 import httpx
 import typer
 
+from homelab_harness_cli.clients import clients_app
 from homelab_harness_cli.owner_api import CliSettings
 from homelab_harness_cli.vault import secret_app, vault_app
 
@@ -23,6 +24,7 @@ app = typer.Typer(
 )
 app.add_typer(secret_app)
 app.add_typer(vault_app)
+app.add_typer(clients_app)
 
 
 def _cli_version() -> str:
