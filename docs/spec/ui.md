@@ -23,7 +23,7 @@
 | Panels (UI-3+) | dockview | VS Code-style splits and tabs, with layouts serialized to JSON |
 | Dashboard grid (UI-2+) | react-grid-layout v2 | Drag and resize |
 | Terminals (UI-4) | xterm.js 6 through a backend WebSocket proxy | See [Terminals](#terminals) |
-| Serving | A static build served by FastAPI on the same origin. Tailnet only, owner passkey session. | One deploy unit, no CORS, never public |
+| Serving | A static build served by FastAPI on the same origin. Tailnet only, owner passkey session (built with ADR-0007: `owner_sessions`, cookie `__Host-hh_owner`, `homelab_harness.auth.owner.OwnerService.session_for`, CSRF via `csrf_token_for`). | One deploy unit, no CORS, never public |
 | Tests | Vitest + Testing Library (components and templates), Playwright (a smoke test per route against a fixture lab state) | |
 
 ## Layout

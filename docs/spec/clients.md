@@ -1,6 +1,6 @@
 # Connecting AI clients (bring your own subscription)
 
-> **Status: specification, partly implemented.** The `/mcp` server, its tool annotations, and interim bearer-token auth are built (see [Connecting during Stage 1](#connecting-during-stage-1-interim-bearer-tokens)). OAuth (ADR-0007) is not built yet. It was researched on 2026-10-31 against vendor docs. Vendor policies change, so re-check the sources before each release. Anything marked "(unverified)" came from secondary sources.
+> **Status: specification, partly implemented.** The `/mcp` server, its tool annotations, the embedded OAuth 2.1 authorization server with passkey owner login (ADR-0007; see [Connecting with OAuth](#connecting-with-oauth-tailnet)), and legacy bearer tokens (see [Legacy bearer tokens](#legacy-bearer-tokens)) are built. The public tunnel for claude.ai and ChatGPT is Stage 6. Client behavior was researched on 2026-10-31 against vendor docs. Vendor policies change, so re-check the sources before each release. Anything marked "(unverified)" came from secondary sources.
 
 ## The rule
 
@@ -22,9 +22,9 @@ This is the only pattern that is clearly permitted:
 ## MCP server requirements (what the harness implements)
 
 - **Transport:** streamable HTTP at `/mcp`, implementing spec 2026-07-28 (stateless, `MCP-Protocol-Version` header). *Implemented* with the official MCP Python SDK (`mcp` 2.3), low-level `Server`, stateless with JSON responses. Handshake-era clients (2025-11-25 and earlier) are served too, through the SDK's stateless mode. The tool list is built from the capabilities core discovers through the `homelab_harness.capabilities` entry point.
-- **Auth:** the harness is an OAuth 2.1 resource server with protected-resource metadata (RFC 9728). It validates resource indicators (RFC 8707) and supports Client ID Metadata Documents, with DCR as a fallback for older clients.
-- **Authorization server:** an embedded single-owner server built into the harness. The owner logs in with a passkey (WebAuthn) and a recovery code, and there is no registration. Alternatively, delegate to an existing lab IdP such as Authentik or Keycloak. ADR-0007 decides which.
-- **Every authenticated principal is the owner.** Each client gets its own client ID, so audit and usage can tell Claude Code, claude.ai and ChatGPT apart. Tokens can be revoked per client (`hh clients revoke`). *Interim:* until OAuth lands, `homelab-harness-token create|revoke|list` manages per-client bearer tokens, and every tool call is audited as `mcp.tool_call` with actor `client:<id>`.
+- **Auth:** the harness is an OAuth 2.1 resource server with protected-resource metadata (RFC 9728). It validates resource indicators (RFC 8707) and supports Client ID Metadata Documents, with DCR as a fallback for older clients. *Implemented:* metadata at `/.well-known/oauth-protected-resource/mcp` (and at the root path); a 401 from `/mcp` carries `WWW-Authenticate: Bearer resource_metadata="…"`. Only access tokens whose audience is exactly `<HH_PUBLIC_URL>/mcp` are accepted.
+- **Authorization server:** an embedded single-owner server built into the harness (ADR-0007, option A). *Implemented:* metadata at `/.well-known/oauth-authorization-server`; `/oauth/authorize` (PKCE `S256` required), `/oauth/consent` (needs an owner passkey session; deny by default), `/oauth/token` (`authorization_code` and `refresh_token` only), `/oauth/revoke`, and `/oauth/register` (DCR, public clients only). The owner signs in at `/owner/login` with a passkey, or with a single-use recovery code. There is no registration: the owner is enrolled from the harness host with `homelab-harness-owner enroll`. Access tokens last 15 minutes; refresh tokens rotate, and reuse of an old one revokes the whole grant. Responses include `iss` (RFC 9207).
+- **Every authenticated principal is the owner.** Each client gets its own client ID, so audit and usage can tell Claude Code, claude.ai and ChatGPT apart. Every tool call is audited as `mcp.tool_call` with actor `client:<id>`: `cimd:<host>:<path>` for a metadata-document client, `dcr:<id>` for a registered one, or a legacy token's name. `hh clients list` shows them, and `hh clients revoke <id>` (or `homelab-harness-token revoke --client <id>` on the host) ends every grant of one client at once.
 - **Tool annotations:**
   - Read tools: `readOnlyHint: true`. *Implemented:* also `idempotentHint: true`, `destructiveHint: false`, and `openWorldHint: false` for tools that only talk to registered targets (a closed set), which is every Proxmox tool.
   - `plan_*` tools: `readOnlyHint: true`, because they don't mutate targets and only write a plan row in the harness.
@@ -33,9 +33,31 @@ This is the only pattern that is clearly permitted:
   As a result, clients' own confirmation prompts don't fire for normal use. The harness's approvals are the control, and they happen on the owner's phone.
 - **Exposure:** Cloudflare routes only `/mcp`, `/.well-known/oauth-*` and the authorization server's endpoints. Everything else returns 404 at the edge.
 
-## Connecting during Stage 1 (interim bearer tokens)
+## Connecting with OAuth (tailnet)
 
-> **Tailnet only.** These are long-lived owner tokens with no expiry or scopes. Until the OAuth server lands (ADR-0007), keep `/mcp` reachable only over the tailnet and never route it through the public tunnel. Revoke a token as soon as a machine is lost.
+Passkeys and OAuth need HTTPS (loopback aside), so serve the harness over the tailnet with a certificate, for example `tailscale serve --bg --https=443 http://127.0.0.1:8080`, and set `HH_PUBLIC_URL=https://<host>.<tailnet>.ts.net`. It is the issuer, the passkey relying party and the origin of the MCP resource, so clients must use exactly that address ([development.md](../development.md#owner-login-and-oauth)).
+
+1. **Enroll the owner once**, on the harness host: `homelab-harness-owner enroll`. It prints a one-time link (15 minutes) and ten recovery codes; open the link on a device with your passkey and register it. A second `enroll` is refused; `enroll --add-passkey` adds another passkey, and `homelab-harness-owner recovery-codes` replaces the codes.
+2. **Claude Code** (flow per the [Claude Code MCP docs](https://code.claude.com/docs/en/mcp), checked 2026-11-03; not yet verified against a live harness):
+   ```bash
+   claude mcp add --transport http harness https://<host>.<tailnet>.ts.net/mcp
+   ```
+   then run `/mcp` inside Claude Code and choose to authenticate (or `claude mcp login harness` from the shell). Claude Code reads the protected resource metadata, discovers the authorization server, identifies itself with its client metadata document (or registers through DCR), and opens a browser on `/oauth/authorize`. Its callback is `http://localhost:<random port>/callback`; the harness accepts any port on a registered loopback redirect (RFC 8252). Sign in with your passkey if asked, check the consent screen (client, where the answer goes, the resource), and allow. Claude Code stores and refreshes the tokens itself.
+3. **Codex CLI** (flow per the [Codex MCP docs](https://learn.chatgpt.com/docs/extend/mcp?surface=cli), checked 2026-11-03; not yet verified against a live harness). In `~/.codex/config.toml`:
+   ```toml
+   [mcp_servers.harness]
+   url = "https://<host>.<tailnet>.ts.net/mcp"
+   ```
+   then `codex mcp login harness`, which runs the same browser flow (`--oauth-client-registration cimd|dcr` forces one registration method; the default is `auto`).
+4. **claude.ai, Claude Desktop, mobile and ChatGPT** connect from the vendors' clouds, so they need the public route through Cloudflare (Stage 6). The authorization server is ready for them; the tunnel is not built.
+
+To cut a client off: `hh clients list`, then `hh clients revoke <id>`. Its access and refresh tokens stop working at once; it can only come back through a new consent.
+
+*Verified:* the full flow (discovery, CIMD and DCR, PKCE, consent, token exchange, refresh, revocation) runs in the test suite against the ASGI app, including with the MCP SDK's own OAuth client (`OAuthClientProvider`). *Not verified:* a real browser passkey ceremony, and live Claude Code or Codex clients.
+
+## Legacy bearer tokens
+
+> **Legacy, tailnet only.** These are long-lived owner tokens with no expiry or scopes, accepted at `/mcp` only while `HH_MCP_LEGACY_TOKENS=true` (the default for now; it will default to `false` once the OAuth flows below are verified with live clients, and the tokens will then be removed). Prefer OAuth. Never route `/mcp` through the public tunnel while they are on. Revoke a token as soon as a machine is lost.
 
 1. Register targets in `HH_TARGETS_FILE` and create one token per client on the harness host ([development.md](../development.md#mcp-server)):
    ```bash

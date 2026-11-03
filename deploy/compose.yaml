@@ -67,6 +67,10 @@ services:
       # Empty means telemetry off. Set it to http://otel-collector:4318 with the
       # observability profile, or to an OTLP/HTTP collector the lab already runs.
       HH_OTEL_EXPORTER_OTLP_ENDPOINT: ${HH_OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # The HTTPS address clients use (for example `tailscale serve`'s
+      # https://<host>.<tailnet>.ts.net). Empty means owner login and OAuth off.
+      HH_PUBLIC_URL: ${HH_PUBLIC_URL:-}
+      HH_MCP_LEGACY_TOKENS: ${HH_MCP_LEGACY_TOKENS:-true}
     depends_on:
       postgres:
         condition: service_healthy

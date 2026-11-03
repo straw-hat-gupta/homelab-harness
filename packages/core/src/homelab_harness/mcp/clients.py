@@ -1,4 +1,4 @@
-"""Client registrations: one bearer token per client (interim, until OAuth lands).
+"""Client registrations: one bearer token per client (legacy for AI clients; see ADR-0007).
 
 Each AI client (Claude Code, Codex …) gets its own ``client_id`` and token, so
 audit can tell clients apart and one can be revoked alone. Only a SHA-256 hash
