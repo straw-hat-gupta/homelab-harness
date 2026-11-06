@@ -47,6 +47,7 @@ def test_empty_or_missing_otlp_endpoint_means_telemetry_off(monkeypatch, value):
         ("HH_TARGETS_FILE", "targets_file"),
         ("HH_SECRETS_KEK_PROVIDER", "secrets_kek_provider"),
         ("HH_SECRETS_KEK_FILE", "secrets_kek_file"),
+        ("HH_UI_DIR", "ui_dir"),
         ("HH_PUBLIC_URL", "public_url"),
     ],
 )

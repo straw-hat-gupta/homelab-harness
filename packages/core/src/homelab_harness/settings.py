@@ -91,6 +91,8 @@ class Settings(BaseSettings):
             documents). Registered clients still need the owner's consent.
         owner_session_idle_seconds: An owner session ends after this long unused.
         owner_session_max_seconds: An owner session ends this long after login.
+        ui_dir: The web UI's build directory (``ui/dist``), served at ``/``.
+            When unset, no UI is served; the image sets it.
     """
 
     model_config = SettingsConfigDict(
@@ -129,6 +131,7 @@ class Settings(BaseSettings):
     oauth_dcr_enabled: bool = True
     owner_session_idle_seconds: int = Field(default=900, ge=60, le=86400)
     owner_session_max_seconds: int = Field(default=12 * 3600, ge=300, le=7 * 86400)
+    ui_dir: Path | None = None
 
     @field_validator(
         "otel_exporter_otlp_endpoint",
@@ -136,6 +139,7 @@ class Settings(BaseSettings):
         "targets_file",
         "secrets_kek_provider",
         "secrets_kek_file",
+        "ui_dir",
         mode="before",
     )
     @classmethod

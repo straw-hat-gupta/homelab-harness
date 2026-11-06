@@ -43,6 +43,9 @@ from homelab_harness.settings import Environment, Settings, get_settings
 from homelab_harness.target_health import target_check
 from homelab_harness.targets import TargetRegistry, TargetsFile, read_targets, resolve_vault_refs
 from homelab_harness.telemetry import Telemetry
+from homelab_harness.ui.api import router as ui_router
+from homelab_harness.ui.service import UiReadService
+from homelab_harness.ui.static import mount_ui
 from homelab_harness_sdk.errors import InvalidInput
 
 log = structlog.get_logger(__name__)
@@ -126,12 +129,15 @@ def create_app(settings: Settings | None = None, telemetry: Telemetry | None = N
         login, consent and OAuth endpoints are routed, and startup with a
         database sets ``app.state.auth``; ``app.state.cimd_fetcher`` and
         ``app.state.rate_limiter`` may be replaced before startup (tests do).
+        ``app.state.ui_service`` backs the UI's interim read façade under
+        ``/api/ui``; with ``ui_dir`` set, the built UI is served at ``/``.
 
     Raises:
         InvalidInput: If ``database_url`` is set but is not a Postgres URL, the
             targets file is invalid, it names vault secrets while the vault
-            is off, or legacy MCP tokens are disabled without ``public_url``
-            (nothing could then authenticate at ``/mcp``).
+            is off, legacy MCP tokens are disabled without ``public_url``
+            (nothing could then authenticate at ``/mcp``), or ``ui_dir``
+            holds no build.
         KeyProviderError: If a KEK provider is configured but unusable (R-25).
     """
     settings = settings or get_settings()
@@ -173,6 +179,12 @@ def create_app(settings: Settings | None = None, telemetry: Telemetry | None = N
     _attach_mcp(app, settings, config)
     app.include_router(vault_router)
     app.include_router(clients_router)
+    app.state.ui_service = UiReadService(
+        capabilities=app.state.capabilities,
+        registry=lambda: app.state.mcp_service.registry,
+        audit=lambda: getattr(app.state, "audit", None),
+    )
+    app.include_router(ui_router)
     app.add_exception_handler(RequestValidationError, _validation_error)
 
     @app.get("/healthz", tags=["health"])
@@ -203,6 +215,8 @@ def create_app(settings: Settings | None = None, telemetry: Telemetry | None = N
             )
         return JSONResponse(body, status_code=code)
 
+    if settings.ui_dir is not None:
+        mount_ui(app, settings.ui_dir)  # last: its fallback route must not shadow any other
     return app
 
 
