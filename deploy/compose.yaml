@@ -71,6 +71,14 @@ services:
       # https://<host>.<tailnet>.ts.net). Empty means owner login and OAuth off.
       HH_PUBLIC_URL: ${HH_PUBLIC_URL:-}
       HH_MCP_LEGACY_TOKENS: ${HH_MCP_LEGACY_TOKENS:-true}
+      # Config directory mounted read-only at /etc/harness (see docs/getting-started.md).
+      # Each is optional; empty means off. Files must be owned by uid 10001 (the
+      # container user) and the KEK file must be mode 0400.
+      HH_SECRETS_KEK_PROVIDER: ${HH_SECRETS_KEK_PROVIDER:-}
+      HH_SECRETS_KEK_FILE: ${HH_SECRETS_KEK_FILE:-}
+      HH_TARGETS_FILE: ${HH_TARGETS_FILE:-}
+    volumes:
+      - ${HH_CONFIG_DIR:-./config}:/etc/harness:ro
     depends_on:
       postgres:
         condition: service_healthy

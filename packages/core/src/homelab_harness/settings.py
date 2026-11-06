@@ -130,7 +130,14 @@ class Settings(BaseSettings):
     owner_session_idle_seconds: int = Field(default=900, ge=60, le=86400)
     owner_session_max_seconds: int = Field(default=12 * 3600, ge=300, le=7 * 86400)
 
-    @field_validator("otel_exporter_otlp_endpoint", "public_url", mode="before")
+    @field_validator(
+        "otel_exporter_otlp_endpoint",
+        "public_url",
+        "targets_file",
+        "secrets_kek_provider",
+        "secrets_kek_file",
+        mode="before",
+    )
     @classmethod
     def _empty_endpoint_is_unset(cls, value: object) -> object:
         # Compose passes an unset variable through as "", which must mean "off".
