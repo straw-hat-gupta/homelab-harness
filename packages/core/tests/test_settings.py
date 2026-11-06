@@ -41,6 +41,23 @@ def test_empty_or_missing_otlp_endpoint_means_telemetry_off(monkeypatch, value):
     assert Settings().otel_exporter_otlp_endpoint is None
 
 
+@pytest.mark.parametrize(
+    ("env", "field"),
+    [
+        ("HH_TARGETS_FILE", "targets_file"),
+        ("HH_SECRETS_KEK_PROVIDER", "secrets_kek_provider"),
+        ("HH_SECRETS_KEK_FILE", "secrets_kek_file"),
+        ("HH_UI_DIR", "ui_dir"),
+        ("HH_PUBLIC_URL", "public_url"),
+    ],
+)
+def test_compose_empty_values_mean_unset(monkeypatch, env, field):
+    # Compose passes `${VAR:-}` through as "". It must mean "off", not Path(".")
+    # (which would try to read the working directory as a targets file).
+    monkeypatch.setenv(env, "")
+    assert getattr(Settings(), field) is None
+
+
 def test_otlp_endpoint_must_be_an_http_url(monkeypatch):
     monkeypatch.setenv("HH_OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4318")
     with pytest.raises(ValidationError):

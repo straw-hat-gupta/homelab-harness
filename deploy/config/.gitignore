@@ -1,0 +1,3 @@
+# Local harness config (KEK keyring, targets, CA bundles). Never committed.
+*
+!.gitignore

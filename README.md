@@ -21,6 +21,10 @@
 | [Full specification](docs/spec/README.md) | Every spec doc, in reading order |
 | [ADRs](docs/adr/) · [Glossary](GLOSSARY.md) · [Roadmap](docs/roadmap.md) | Decisions, vocabulary, stages |
 
+## Try it on your lab
+
+**[docs/getting-started.md](docs/getting-started.md)** walks through running Stage 1 against a real Proxmox cluster: Docker Compose, the vault, passkey and OAuth, then connecting Claude Code or Codex. It's read-only toward the lab.
+
 ## Quick start (development)
 
 ```bash

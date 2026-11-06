@@ -11,6 +11,13 @@ All notable changes to this project are documented here. The format follows [Kee
 - `HH_UI_DIR`: the harness serves the UI build at `/` with an SPA fallback that never shadows `/api`, `/mcp`, `/healthz`, `/readyz`, `/docs`, `/.well-known`, `/oauth` or `/owner`, immutable caching for hashed assets, `no-cache` for `index.html`, and a Content-Security-Policy with same-origin scripts only. The image builds the UI in a Node stage and sets `HH_UI_DIR`.
 - UI API types are generated from the app's OpenAPI document (`pnpm gen:api`, `scripts/export_openapi.py`). CI gains a `ui` job (lint, typecheck, Vitest, build, generated files up to date, Playwright smoke) and `pnpm audit --prod`; Dependabot watches `/ui`.
 
+### Added (Stage 1 trial)
+- `docs/getting-started.md`, a step-by-step guide to running Stage 1 against a real cluster: Proxmox identity script, TLS pin, Compose stack, vault KEK, owner passkey, vault-held Proxmox token, targets file, OAuth login from Claude Code and Codex, and what to check.
+- `deploy/compose.yaml` mounts a gitignored `deploy/config/` read-only at `/etc/harness`, and passes `HH_SECRETS_KEK_PROVIDER`, `HH_SECRETS_KEK_FILE` and `HH_TARGETS_FILE` through. Each is off when unset.
+
+### Fixed
+- An empty `HH_TARGETS_FILE`, `HH_SECRETS_KEK_PROVIDER` or `HH_SECRETS_KEK_FILE` now means "unset". This is what Compose passes for `${VAR:-}`. Before, an empty targets path became `.`.
+
 ### Added (owner login and OAuth for MCP)
 - An embedded single-owner OAuth 2.1 authorization server for MCP clients (ADR-0007), on when `HH_PUBLIC_URL` is set. Metadata at `/.well-known/oauth-authorization-server` (RFC 8414) and `/.well-known/oauth-protected-resource[/mcp]` (RFC 9728); `/oauth/authorize` (PKCE `S256` only), `/oauth/consent` (owner session and CSRF; deny by default; shows the client, the redirect host and a loopback warning), `/oauth/token` (`authorization_code`, `refresh_token`), `/oauth/revoke` and `/oauth/register` (DCR, public clients only, rate-limited, `HH_OAUTH_DCR_ENABLED`). Client ID Metadata Documents are fetched with SSRF limits (https only, public resolved addresses pinned for the connection, no redirects, 5 s, 5 KiB). Responses carry `iss` (RFC 9207). Built on the MCP SDK's authorization-server handlers.
 - Access tokens are opaque, hashed in Postgres, 15 minutes by default (`HH_OAUTH_ACCESS_TOKEN_SECONDS`) and bound to `<HH_PUBLIC_URL>/mcp`. Refresh tokens rotate on every use; reusing a rotated refresh token, or an authorization code, revokes the whole grant. `/mcp` answers 401 with `WWW-Authenticate: Bearer resource_metadata="…"`. OAuth clients are audited as `client:cimd:<host>:<path>` or `client:dcr:<id>`.
