@@ -20,12 +20,20 @@ from starlette.routing import Route
 
 from homelab_harness import __version__
 from homelab_harness.audit.service import AuditWriter
+from homelab_harness.auth.cimd import CimdFetcher
+from homelab_harness.auth.clients_api import router as clients_router
+from homelab_harness.auth.config import AuthConfig, auth_config
+from homelab_harness.auth.owner import OwnerService
+from homelab_harness.auth.provider import HarnessOAuthProvider
+from homelab_harness.auth.ratelimit import DEFAULT_LIMITS, RateLimiter
+from homelab_harness.auth.routes import AuthServices, install_auth_routes
 from homelab_harness.capabilities import discover_capabilities
 from homelab_harness.db.engine import create_engine, create_session_factory
 from homelab_harness.db.health import database_check
 from homelab_harness.db.url import parse_database_url
 from homelab_harness.health import CheckStatus, ReadinessRegistry
 from homelab_harness.jobs.runtime import dbos_check, launch_dbos, shutdown_dbos
+from homelab_harness.mcp.auth import HarnessTokenVerifier
 from homelab_harness.mcp.server import MCP_PATH, McpService, build_mcp
 from homelab_harness.redaction import redactor
 from homelab_harness.secrets.api import router as vault_router
@@ -70,6 +78,16 @@ async def _database_lifespan(app: FastAPI) -> AsyncGenerator[None]:
     sessions = create_session_factory(engine)
     app.state.db_sessions = sessions
     app.state.audit = AuditWriter(sessions)
+    config: AuthConfig | None = app.state.auth_config
+    if config is not None:
+        app.state.auth = AuthServices(
+            config=config,
+            owner=OwnerService(sessions, config=config, audit=app.state.audit),
+            provider=HarnessOAuthProvider(
+                sessions, config=config, audit=app.state.audit, fetcher=app.state.cimd_fetcher
+            ),
+            limiter=app.state.rate_limiter,
+        )
     key_provider: KeyProvider | None = app.state.key_provider
     if key_provider is not None:
         app.state.vault = VaultService(sessions, keys=key_provider, audit=app.state.audit)
@@ -107,14 +125,19 @@ def create_app(settings: Settings | None = None, telemetry: Telemetry | None = N
         ``app.state.key_provider`` is the vault's KEK provider, or ``None``
         when ``HH_SECRETS_KEK_PROVIDER`` is unset; with both a provider and a
         database, startup sets ``app.state.vault`` (the vault service) and the
-        owner API under ``/api`` serves it. ``app.state.ui_service`` backs the
-        UI's interim read façade under ``/api/ui``; with ``ui_dir`` set, the
-        built UI is served at ``/``.
+        owner API under ``/api`` serves it. With ``HH_PUBLIC_URL`` set, the owner
+        login, consent and OAuth endpoints are routed, and startup with a
+        database sets ``app.state.auth``; ``app.state.cimd_fetcher`` and
+        ``app.state.rate_limiter`` may be replaced before startup (tests do).
+        ``app.state.ui_service`` backs the UI's interim read façade under
+        ``/api/ui``; with ``ui_dir`` set, the built UI is served at ``/``.
 
     Raises:
         InvalidInput: If ``database_url`` is set but is not a Postgres URL, the
             targets file is invalid, it names vault secrets while the vault
-            is off, or ``ui_dir`` holds no build.
+            is off, legacy MCP tokens are disabled without ``public_url``
+            (nothing could then authenticate at ``/mcp``), or ``ui_dir``
+            holds no build.
         KeyProviderError: If a KEK provider is configured but unusable (R-25).
     """
     settings = settings or get_settings()
@@ -142,8 +165,20 @@ def create_app(settings: Settings | None = None, telemetry: Telemetry | None = N
     app.state.telemetry = telemetry
     if telemetry is not None:
         telemetry.instrument_app(app)
-    _attach_mcp(app, settings)
+    config = auth_config(settings)
+    if config is None and not settings.mcp_legacy_tokens:
+        raise InvalidInput(
+            "HH_MCP_LEGACY_TOKENS=false needs HH_PUBLIC_URL, so OAuth can authenticate /mcp"
+        )
+    app.state.auth_config = config
+    app.state.auth = None
+    app.state.cimd_fetcher = CimdFetcher()
+    app.state.rate_limiter = RateLimiter(DEFAULT_LIMITS)
+    if config is not None:
+        install_auth_routes(app, config)
+    _attach_mcp(app, settings, config)
     app.include_router(vault_router)
+    app.include_router(clients_router)
     app.state.ui_service = UiReadService(
         capabilities=app.state.capabilities,
         registry=lambda: app.state.mcp_service.registry,
@@ -197,7 +232,7 @@ async def _validation_error(_request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse({"detail": detail}, status_code=422)
 
 
-def _attach_mcp(app: FastAPI, settings: Settings) -> None:
+def _attach_mcp(app: FastAPI, settings: Settings, config: AuthConfig | None) -> None:
     """Discover capabilities, read targets, and route ``/mcp``.
 
     Targets whose credentials all come from secret files are installed now.
@@ -227,7 +262,17 @@ def _attach_mcp(app: FastAPI, settings: Settings) -> None:
         app.state.pending_targets = targets
     elif targets is not None:
         _install_targets(app, targets.registry())
-    mcp_app, manager = build_mcp(service, sessions=lambda: getattr(app.state, "db_sessions", None))
+    verifier = HarnessTokenVerifier(
+        sessions=lambda: getattr(app.state, "db_sessions", None),
+        oauth=lambda: app.state.auth.provider if app.state.auth is not None else None,
+        resource=config.resource if config is not None else None,
+        legacy_tokens=settings.mcp_legacy_tokens,
+    )
+    mcp_app, manager = build_mcp(
+        service,
+        verifier=verifier,
+        resource_metadata_url=config.resource_metadata_url if config is not None else None,
+    )
     app.state.mcp_manager = manager
     app.router.routes.append(Route(MCP_PATH, endpoint=mcp_app, methods=["GET", "POST", "DELETE"]))
 

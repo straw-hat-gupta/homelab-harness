@@ -1,0 +1,16 @@
+body { font: 16px/1.5 system-ui, sans-serif; margin: 0; background: #f6f7f9; color: #1d2330; }
+main { max-width: 34rem; margin: 3rem auto; padding: 0 16px; }
+h1 { font-size: 1.4rem; }
+button { font: inherit; padding: 0.5rem 1rem; border: 1px solid #8a93a6; border-radius: 6px; background: #fff; cursor: pointer; }
+button.approve { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+.actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
+.error { color: #b91c1c; }
+.warning { background: #fff7e6; border-left: 4px solid #d97706; padding: 0.5rem 0.75rem; }
+dt { font-weight: 600; margin-top: 0.5rem; }
+dd { margin: 0; overflow-wrap: anywhere; }
+code { font-size: 0.9em; }
+@media (prefers-color-scheme: dark) {
+  body { background: #11141a; color: #e5e7eb; }
+  button { background: #1f2430; color: #e5e7eb; border-color: #4b5563; }
+  .warning { background: #2a2111; }
+}

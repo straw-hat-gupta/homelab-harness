@@ -22,6 +22,7 @@ from typing import Any
 import structlog
 from mcp import types
 from mcp.server import Server, ServerRequestContext
+from mcp.server.auth.provider import TokenVerifier
 from mcp.server.streamable_http_manager import StreamableHTTPASGIApp, StreamableHTTPSessionManager
 from mcp.shared.exceptions import MCPError
 from pydantic import ValidationError
@@ -30,8 +31,7 @@ from starlette.types import ASGIApp
 from homelab_harness import __version__
 from homelab_harness.audit.service import AuditWriter
 from homelab_harness.capabilities import AnyCapability
-from homelab_harness.mcp.auth import ClientTokenVerifier, SessionsProvider, current_client_id
-from homelab_harness.mcp.auth import require_bearer as _require_bearer
+from homelab_harness.mcp.auth import current_client_id, require_bearer
 from homelab_harness.mcp.context import CoreToolContext
 from homelab_harness.mcp.results import (
     error_result,
@@ -189,13 +189,15 @@ class McpService:
 
 
 def build_mcp(
-    service: McpService, *, sessions: SessionsProvider
+    service: McpService, *, verifier: TokenVerifier, resource_metadata_url: str | None
 ) -> tuple[ASGIApp, StreamableHTTPSessionManager]:
     """Build the authenticated ASGI app for ``/mcp`` and its session manager.
 
     Args:
         service: The tool surface.
-        sessions: Returns the database session factory, for token checks.
+        verifier: Bearer token verifier (OAuth access tokens and legacy tokens).
+        resource_metadata_url: Protected resource metadata URL advertised in
+            the 401 challenge, or ``None`` when OAuth is off.
 
     Returns:
         The ASGI app to route ``/mcp`` to, and the manager whose ``run()`` the
@@ -209,5 +211,7 @@ def build_mcp(
         on_call_tool=service.call_tool,
     )
     manager = StreamableHTTPSessionManager(app=server, stateless=True, json_response=True)
-    app = _require_bearer(StreamableHTTPASGIApp(manager), ClientTokenVerifier(sessions))
+    app = require_bearer(
+        StreamableHTTPASGIApp(manager), verifier, resource_metadata_url=resource_metadata_url
+    )
     return app, manager

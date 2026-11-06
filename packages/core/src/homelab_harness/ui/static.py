@@ -40,9 +40,22 @@ CONTENT_SECURITY_POLICY = "; ".join(
 IMMUTABLE = "public, max-age=31536000, immutable"
 NO_CACHE = "no-cache"
 
-# First path segments that belong to the server, never to the SPA.
+# First path segments that belong to the server, never to the SPA: an unknown
+# path under them is a 404, not the app shell. ``oauth`` and ``owner`` are the
+# authorization server and the owner's passkey pages (homelab_harness.auth).
 SERVER_PREFIXES = frozenset(
-    {"api", "mcp", "healthz", "readyz", "docs", "redoc", "openapi.json", ".well-known"}
+    {
+        "api",
+        "mcp",
+        "healthz",
+        "readyz",
+        "docs",
+        "redoc",
+        "openapi.json",
+        ".well-known",
+        "oauth",
+        "owner",
+    }
 )
 
 _SECURITY_HEADERS = {

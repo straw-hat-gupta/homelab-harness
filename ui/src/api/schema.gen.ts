@@ -4,6 +4,46 @@
  */
 
 export interface paths {
+  "/api/clients": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Clients Route
+     * @description List OAuth clients and legacy client tokens.
+     */
+    get: operations["list_clients_route_api_clients_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clients/{client_id}/revoke": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Revoke Client Route
+     * @description Revoke every grant of an OAuth client, or a legacy client's token.
+     */
+    post: operations["revoke_client_route_api_clients__client_id__revoke_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/secrets": {
     parameters: {
       query?: never;
@@ -226,6 +266,33 @@ export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
     /**
+     * ClientListResponse
+     * @description Every client, oldest first.
+     */
+    ClientListResponse: {
+      /** Clients */
+      clients: components["schemas"]["ClientResponse"][];
+    };
+    /**
+     * ClientResponse
+     * @description One client.
+     */
+    ClientResponse: {
+      /** Active */
+      active: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Id */
+      id: string;
+      /** Kind */
+      kind: string;
+      /** Name */
+      name: string;
+    };
+    /**
      * CreateSecretRequest
      * @description Body of ``POST /api/secrets``. Exactly one of ``value`` and ``fields``.
      */
@@ -339,6 +406,16 @@ export interface components {
     };
     /** @enum {string} */
     ObjectType: "datacenter" | "node" | "qemu" | "lxc" | "storage";
+    /**
+     * RevokeResponse
+     * @description What a revocation ended.
+     */
+    RevokeResponse: {
+      /** Id */
+      id: string;
+      /** Revoked */
+      revoked: number;
+    };
     /**
      * RewrapResponse
      * @description ``POST /api/vault/rotate-kek``.
@@ -598,6 +675,57 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  list_clients_route_api_clients_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClientListResponse"];
+        };
+      };
+    };
+  };
+  revoke_client_route_api_clients__client_id__revoke_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        client_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RevokeResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   list_secrets_api_secrets_get: {
     parameters: {
       query?: never;

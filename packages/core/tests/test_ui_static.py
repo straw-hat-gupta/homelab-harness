@@ -82,6 +82,9 @@ async def test_paths_outside_the_build_are_never_served(client):
         "/readyz/extra",
         "/docs/extra",
         "/.well-known/oauth-authorization-server",
+        "/oauth/nope",
+        "/owner/nope",
+        "/owner/static/nope.css",
     ],
 )
 async def test_server_prefixes_never_fall_back_to_the_shell(client, path):
@@ -115,3 +118,21 @@ async def test_no_ui_is_served_without_a_build_directory():
 def test_a_build_directory_without_index_html_stops_startup(tmp_path):
     with pytest.raises(InvalidInput, match=r"index\.html"):
         create_app(Settings(env=Environment.TEST, ui_dir=tmp_path))
+
+
+async def test_auth_routes_are_not_shadowed_by_the_shell(dist):
+    app = create_app(
+        Settings(env=Environment.TEST, ui_dir=dist, public_url="http://localhost:8080")
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://localhost:8080"
+    ) as c:
+        metadata = await c.get("/.well-known/oauth-authorization-server")
+        resource = await c.get("/.well-known/oauth-protected-resource/mcp")
+        login = await c.get("/owner/login")
+        authorize = await c.get("/oauth/authorize")
+    assert metadata.status_code == 200
+    assert metadata.json()["issuer"].startswith("http://localhost:8080")
+    assert resource.status_code == 200
+    for response in (login, authorize):
+        assert INDEX not in response.text

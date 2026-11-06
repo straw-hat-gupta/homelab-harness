@@ -122,7 +122,7 @@ def test_cli_creates_owner_tokens(env_database, client_id, capsys):
     main(["create", "--client", client_id, "--role", "owner"])
     capsys.readouterr()
     main(["list"])
-    assert f"{client_id}\towner\t" in capsys.readouterr().out
+    assert f"{client_id}\ttoken-owner\t" in capsys.readouterr().out
 
 
 def test_cli_without_database_exits_cleanly(monkeypatch):

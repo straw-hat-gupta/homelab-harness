@@ -23,12 +23,15 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi>=0.66b2",
     "opentelemetry-instrumentation-sqlalchemy>=0.66b2",
     "opentelemetry-instrumentation-httpx>=0.66b2",
+    "httpx>=0.28",
+    "webauthn>=3.0.1,<4",
 ]
 
 [project.scripts]
 homelab-harness = "homelab_harness.server:main"
 homelab-harness-migrate = "homelab_harness.db.migrate:main"
 homelab-harness-token = "homelab_harness.mcp.token_cli:main"
+homelab-harness-owner = "homelab_harness.auth.owner_cli:main"
 
 [build-system]
 requires = ["hatchling>=1.25"]

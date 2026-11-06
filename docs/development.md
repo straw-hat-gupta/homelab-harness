@@ -52,6 +52,13 @@ Settings come only from `HH_*` environment variables (`packages/core/src/homelab
 | `HH_OTEL_METRIC_EXPORT_INTERVAL_SECONDS` | `15` | How often metrics are pushed |
 | `HH_TARGETS_FILE` | unset | **Interim** TOML list of targets per capability, with each credential's vault handle or secret file. See [MCP server](#mcp-server). Unset means no targets: tools answer "no proxmox target is registered". An invalid file, or a handle naming a missing or revoked secret, stops startup. |
 | `HH_UI_DIR` | unset | The web UI's build directory (`ui/dist`), served at `/`. Unset means no UI. The image sets `/opt/harness/ui`. A directory without `index.html` stops startup. See [Web UI](#web-ui). |
+| `HH_PUBLIC_URL` | unset | The harness's HTTPS origin as clients reach it (`https://<host>.<tailnet>.ts.net`; `http://localhost:<port>` in dev). It is the OAuth issuer, the passkey relying party and the origin of the MCP resource `<url>/mcp`. Must be an origin (no path) and HTTPS unless loopback. Unset means no owner login and no OAuth: `/mcp` takes only legacy tokens. See [Owner login and OAuth](#owner-login-and-oauth). |
+| `HH_MCP_LEGACY_TOKENS` | `true` | Whether `/mcp` still accepts `homelab-harness-token` MCP tokens. Will default to `false` once OAuth is verified with live clients. `false` without `HH_PUBLIC_URL` stops startup. |
+| `HH_OAUTH_ACCESS_TOKEN_SECONDS` | `900` | Access token lifetime (60 to 3600) |
+| `HH_OAUTH_REFRESH_TOKEN_SECONDS` | `2592000` | Refresh token lifetime (30 days); each use rotates it |
+| `HH_OAUTH_DCR_ENABLED` | `true` | Serve `/oauth/register` (dynamic client registration, the fallback to client metadata documents) |
+| `HH_OWNER_SESSION_IDLE_SECONDS` | `900` | Owner browser session idle timeout |
+| `HH_OWNER_SESSION_MAX_SECONDS` | `43200` | Owner browser session absolute lifetime |
 | `HH_CLI_URL` | `http://127.0.0.1:8080` | Where `hh` sends requests |
 | `HH_CLI_TOKEN_FILE` | unset | File holding only the owner token `hh` sends to `/api` (chmod 0600; looser modes are refused). See [Vault](#vault). |
 | `HH_CLI_TOKEN` | unset | The owner token itself, when no file is set. Child processes inherit it, so prefer the file. |
@@ -149,7 +156,7 @@ Kinds and their rules are in [secrets.md](spec/secrets.md#secret-kinds). Metadat
 
 The harness serves MCP at `/mcp` (streamable HTTP, stateless, JSON responses). It speaks the 2026-07-28 protocol and the earlier handshake versions. It needs `HH_DATABASE_URL`, because client tokens and the audit log live in Postgres. Without a database every request gets 401.
 
-> **Interim, tailnet only.** Until the OAuth authorization server lands (ADR-0007), clients authenticate with long-lived owner bearer tokens, and targets are listed in a file (their credentials can come from the vault). Do not expose `/mcp` or `/api` publicly with this setup.
+> **Tailnet only.** Clients authenticate with OAuth (see [Owner login and OAuth](#owner-login-and-oauth)) or, while `HH_MCP_LEGACY_TOKENS=true`, with long-lived legacy bearer tokens. Targets are listed in a file (their credentials can come from the vault). Do not expose `/mcp` or `/api` publicly; the public route is Stage 6.
 
 **Targets.** List clusters in a TOML file and point `HH_TARGETS_FILE` at it:
 
@@ -172,7 +179,7 @@ Each credential sets exactly one of `token_secret` and `token_secret_file`.
 
 Either way, the value is registered with the redactor. `/readyz` gets one check per target, `proxmox:<name>`, which reports `degraded` (never `fail`) when the cluster cannot be read.
 
-**Client tokens.** One token per client, so audit tells them apart and each can be revoked alone:
+**Client tokens (legacy).** One token per client, so audit tells them apart and each can be revoked alone. `list` and `revoke` also show and revoke OAuth clients:
 
 ```bash
 uv run homelab-harness-token create --client claude-code   # prints the token once, on stdout
@@ -183,7 +190,7 @@ uv run homelab-harness-token list
 
 Only a SHA-256 hash of each token is stored (`mcp_clients`). In the container, run it with `docker compose -f deploy/compose.yaml exec harness homelab-harness-token create --client claude-code`.
 
-**Connecting.** See [clients.md](spec/clients.md#connecting-during-stage-1-interim-bearer-tokens) for Claude Code and Codex. To check by hand:
+**Connecting.** See [clients.md](spec/clients.md#connecting-with-oauth-tailnet) for Claude Code and Codex. To check by hand:
 
 ```bash
 curl -s -X POST localhost:8080/mcp -H "Authorization: Bearer $TOKEN" \
@@ -193,6 +200,32 @@ curl -s -X POST localhost:8080/mcp -H "Authorization: Bearer $TOKEN" \
 ```
 
 Every tool call writes an `mcp.tool_call` audit event (client, tool, target, outcome, duration; no arguments).
+
+## Owner login and OAuth
+
+The harness embeds a single-owner OAuth 2.1 authorization server (ADR-0007) for MCP clients. It needs `HH_DATABASE_URL` and `HH_PUBLIC_URL`. Passkeys work only in a secure context, so in dev use `http://localhost:<port>` (not `127.0.0.1`: WebAuthn refuses IP addresses as a relying party):
+
+```bash
+HH_ENV=dev HH_PUBLIC_URL=http://localhost:8080 uv run homelab-harness
+uv run homelab-harness-owner enroll             # one-time link + 10 recovery codes, printed once
+uv run homelab-harness-owner enroll --add-passkey
+uv run homelab-harness-owner recovery-codes     # replace all codes
+curl -s localhost:8080/.well-known/oauth-protected-resource/mcp
+curl -s localhost:8080/.well-known/oauth-authorization-server
+```
+
+On the tailnet, terminate HTTPS in front of the harness (for example `tailscale serve --bg --https=443 http://127.0.0.1:8080`) and set `HH_PUBLIC_URL` to that `https://` origin. In the container: `docker compose -f deploy/compose.yaml exec harness homelab-harness-owner enroll`.
+
+| Path | What |
+|---|---|
+| `/owner/login`, `/owner/enroll` | Server-rendered passkey pages (no inline script; strict CSP; `frame-ancestors 'none'`) |
+| `/oauth/authorize`, `/oauth/consent` | Authorization request (PKCE `S256` required), then the owner's consent (session + CSRF; deny by default) |
+| `/oauth/token`, `/oauth/revoke`, `/oauth/register` | Token exchange and refresh, RFC 7009 revocation, DCR for public clients |
+| `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource[/mcp]` | RFC 8414 and RFC 9728 metadata |
+
+What is stored: only hashes of session, enrollment, code and token values (SHA-256; they are 256-bit random), scrypt hashes of recovery codes, and passkey public keys. Login, authorize, token and register are rate-limited in memory per client address and in total (`homelab_harness.auth.ratelimit`); the address is the one uvicorn reports (it honours `X-Forwarded-For` only from `127.0.0.1`), so behind a proxy that sends none, every request shares one address and the limits act as totals. With more than one worker process each enforces its own limits.
+
+`hh clients list` and `hh clients revoke <id>` show and revoke OAuth clients and legacy tokens through `/api/clients`.
 
 ## Web UI
 
@@ -216,7 +249,7 @@ pnpm gen:api        # regenerate src/api/schema.gen.ts from the app's OpenAPI do
 
 **API types.** `pnpm gen:api` runs `scripts/export_openapi.py`, which writes the same document `GET /openapi.json` serves (built in the test environment, so no server is needed), then `openapi-typescript`. Commit the result; CI fails when it or the generated route tree is stale.
 
-**Serving.** With `HH_UI_DIR` set, FastAPI serves the build at `/`: `/assets/*` (hashed) is `immutable` for a year, everything else is `no-cache`, and unknown paths fall back to `index.html` for client routes, except under `/api`, `/mcp`, `/healthz`, `/readyz`, `/docs`, `/openapi.json` and `/.well-known`, which stay JSON 404s. UI responses carry a Content-Security-Policy that allows same-origin scripts only (no inline script) and no framing; inline styles are allowed because Radix's scroll lock injects a `<style>` element.
+**Serving.** With `HH_UI_DIR` set, FastAPI serves the build at `/`: `/assets/*` (hashed) is `immutable` for a year, everything else is `no-cache`, and unknown paths fall back to `index.html` for client routes, except under `/api`, `/mcp`, `/healthz`, `/readyz`, `/docs`, `/openapi.json`, `/.well-known`, `/oauth` and `/owner`, which stay JSON 404s. UI responses carry a Content-Security-Policy that allows same-origin scripts only (no inline script) and no framing; inline styles are allowed because Radix's scroll lock injects a `<style>` element.
 
 ## Container
 

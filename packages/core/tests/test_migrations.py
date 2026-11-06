@@ -88,7 +88,7 @@ def test_migrate_command_is_idempotent_and_checks(migrated_url, env_database_url
     main(["check"])
     main(["current"])
     with psycopg.connect(libpq_url(migrated_url)) as conn:
-        assert conn.execute("SELECT version_num FROM alembic_version").fetchall() == [("0004",)]
+        assert conn.execute("SELECT version_num FROM alembic_version").fetchall() == [("0005",)]
 
 
 def test_migrate_command_without_url_exits_cleanly(env_database_url):

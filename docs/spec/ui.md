@@ -1,6 +1,6 @@
 # Web UI: an AI-native replacement for the Proxmox GUI
 
-> **Status: UI-1 foundation implemented** (the app shell, the registries below, the side tree, object pages with Summary and a placeholder Tasks tab, the `stat`, `table`, `status-list`, `markdown` and `log-tail` templates, ⌘K search, the theme switch, and serving by FastAPI). Its data comes from an **interim read façade** (`GET /api/ui/tree`, `GET /api/ui/objects/{type}/{id}/summary`) over the Proxmox read tools; the lab state replaces it in Stage 2. Not yet built: Logs, SSE live updates, passkey login (an owner token is asked for meanwhile), and everything from UI-2 on. How to extend it: [ui/README.md](../../ui/README.md). The UI is part of v1, starts small and grows in planned increments (below). It is designed from the first version so that adding functionality means **registering an extension**, not rewriting pages. This document replaces the earlier "UI vision (post-v1)".
+> **Status: UI-1 foundation implemented** (the app shell, the registries below, the side tree, object pages with Summary and a placeholder Tasks tab, the `stat`, `table`, `status-list`, `markdown` and `log-tail` templates, ⌘K search, the theme switch, and serving by FastAPI). Its data comes from an **interim read façade** (`GET /api/ui/tree`, `GET /api/ui/objects/{type}/{id}/summary`) over the Proxmox read tools; the lab state replaces it in Stage 2. Not yet built: Logs, SSE live updates, signing the UI in with the owner passkey session (the session exists, but `/api` accepts only owner bearer tokens, so the UI asks for one on a 401 and keeps it for the tab), and everything from UI-2 on. How to extend it: [ui/README.md](../../ui/README.md). The UI is part of v1, starts small and grows in planned increments (below). It is designed from the first version so that adding functionality means **registering an extension**, not rewriting pages. This document replaces the earlier "UI vision (post-v1)".
 
 ## Goals
 
@@ -23,7 +23,7 @@
 | Panels (UI-3+) | dockview | VS Code-style splits and tabs, with layouts serialized to JSON |
 | Dashboard grid (UI-2+) | react-grid-layout v2 | Drag and resize |
 | Terminals (UI-4) | xterm.js 6 through a backend WebSocket proxy | See [Terminals](#terminals) |
-| Serving | A static build served by FastAPI on the same origin. Tailnet only, owner passkey session. | One deploy unit, no CORS, never public |
+| Serving | A static build served by FastAPI on the same origin. Tailnet only, owner passkey session (built with ADR-0007: `owner_sessions`, cookie `__Host-hh_owner`, `homelab_harness.auth.owner.OwnerService.session_for`, CSRF via `csrf_token_for`). | One deploy unit, no CORS, never public |
 | Tests | Vitest + Testing Library (components and templates), Playwright (a smoke test per route against a fixture lab state) | |
 
 ## Layout
