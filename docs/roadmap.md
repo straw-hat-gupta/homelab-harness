@@ -18,9 +18,11 @@ The spec is in [`docs/spec/`](spec/README.md), the decisions are in [`docs/adr/`
 | Proxmox read-only adapter, TLS pinning, bootstrap script (#24) | ✅ |
 | Vault crypto: envelope encryption, KEK providers, secret kinds (#22) | ✅ |
 | Observability: OTel, plus Prometheus, Tempo, Loki and Grafana (#23) | ✅ |
-| MCP server with Proxmox read tools, interim owner tokens, audit per call, contract kit | in progress |
+| MCP server with 18 Proxmox read tools, separate MCP/owner tokens, audit per call, contract kit (#26) | ✅ code; live client verification pending |
 | Vault persistence and the `hh secret` and `hh vault` CLI (#28) | ✅ |
-| Owner OAuth: embedded authorization server, passkey login, `hh clients` ([ADR-0007](adr/0007-owner-auth.md)) | in review (live client logins unverified; CLI device flow is a follow-up) |
+| Owner OAuth: embedded authorization server, passkey login, `hh clients` (#30, [ADR-0007](adr/0007-owner-auth.md)) | ✅ code; live passkey/client verification pending; CLI device flow is a follow-up |
+
+The UI-1 foundation is also implemented: a read-only navigator, Summary pages, search, themes and reusable widgets. It uses live read tools until Stage 2 provides lab state; Tasks is a placeholder, not populated task history. See [project-status.md](project-status.md) and [getting-started.md](getting-started.md) for the first verification pass. `hh doctor` and `hh init` are not implemented yet; the manual checks remain necessary.
 
 **Done when:**
 - Claude Code and Codex connect over the tailnet and answer read questions about the cluster.

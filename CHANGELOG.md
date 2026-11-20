@@ -4,6 +4,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+- Complete the dashboard's owner-token setup command and clarify the separate dashboard/MCP login paths. Refresh the current-state summary and first-run guide, including local-only verification, existing-key preservation, and safe teardown.
+
 ### Added (web UI foundation, UI-1)
 - `ui/`: a React 19 + Vite + strict TypeScript app with TanStack Router (file routes) and Query, Tailwind 4 and shadcn/ui, built with pnpm 12 on Node 26. An app shell (top bar with ⌘K search, side tree of datacenter → nodes → guests plus storage, object pages, light and dark themes).
 - Extension registries discovered with `import.meta.glob`, each with a Zod-validated `define*` helper: object types (`datacenter`, `node`, `qemu`, `lxc`, `storage`), object tabs (`summary`, `tasks` as a placeholder), actions (the type only; none shipped), and widget templates (`stat`, `table`, `status-list`, `markdown`, `log-tail`). The command palette is derived from them. Guide: `ui/README.md`.

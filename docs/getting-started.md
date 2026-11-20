@@ -6,9 +6,40 @@ This guide walks through running what's built so far against a real Proxmox clus
 - the MCP server with 18 read-only Proxmox tools;
 - the web UI shell.
 
-Everything is **read-only toward your lab**. The only changes to Proxmox are a service user and tokens, which you create yourself in step 2.
+The running harness is **read-only toward your lab**. Bootstrap in step 2 is a separate, owner-reviewed change: it creates a Proxmox user, pool, roles, ACLs and tokens, including future write tiers. Do not run that script as part of a local UI demo; only the `read` token is needed by the current harness.
 
 > **Status: first live run.** The code is tested against mocks and fixtures, but no part of it has been verified against a real PVE node, a real browser passkey, or a real Claude Code/Codex login. That's the point of this run. Note what breaks; the [checklist](#what-to-report-back) at the end lists what to look for.
+
+## First: test locally without connecting a lab
+
+Run from the repository root. Use Python 3.13, Docker, Node 26 and the pinned pnpm 12.16.1; an older pnpm cannot read the multi-document lockfile. No Proxmox credentials are needed for these checks.
+
+```bash
+uv sync --frozen
+uv run ruff check .
+uv run ruff format --check .
+uv run pyright
+CI=1 uv run pytest -q             # Docker is required; do not silently skip DB tests
+python3 scripts/check_links.py
+
+cd ui
+pnpm install --frozen-lockfile
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm gen:api
+git diff --exit-code -- src/api/schema.gen.ts src/routeTree.gen.ts
+pnpm exec playwright install chromium
+pnpm e2e                         # real browser + app, lab responses from fixtures
+cd ..
+```
+
+The browser smoke test checks navigation, search, themes, reloads, authentication prompts and the content security policy. Its screenshot case is opt-in: `HH_E2E_SCREENSHOT=/tmp/harness-demo.png pnpm e2e` from `ui/`. Fixture nodes are examples, not your real lab.
+
+To open the built app yourself, run `HH_ENV=dev HH_UI_DIR=ui/dist uv run homelab-harness` and visit `http://127.0.0.1:8080`. With no database or credentials, the expected result is the owner-token prompt; `/healthz` alone does not prove the vault, database or Proxmox connection is configured. Stop this process before starting Compose on the same port.
+
+Continue below for the full stack and real read-only data. GitHub's historical CI failures on 2026-11-20 were caused by an account billing lock before jobs started; local results do not clear that account restriction.
 
 ## 0. What you need
 
@@ -53,7 +84,7 @@ It creates:
 
 **Copy the `value` printed for the `read` token.** Proxmox shows it only once. Stage 1 uses only `read`.
 
-The script's comments mention `hh proxmox token set` and `hh proxmox register`. Those commands don't exist yet, so use steps 4 and 5 instead.
+The script's comments mention `hh proxmox token set` and `hh proxmox register`. Those commands don't exist yet, so use steps 4 and 5 instead. If you already have an appropriate read-only service token, reuse it and skip bootstrap; do not rerun bootstrap blindly against an existing harness identity.
 
 **TLS.** The harness refuses unverified TLS. Pick one option:
 - **Pin the certificate fingerprint** (the simplest):
@@ -73,10 +104,11 @@ export HH_OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
 export HH_PUBLIC_URL                                            # from step 1
 
 # Vault key (KEK): owned by the container user (uid 10001), mode 0400, outside the DB.
-(umask 077; printf 'kek-1:%s\n' "$(openssl rand -base64 32)" > config/kek)
+(umask 077; set -C; printf 'kek-1:%s\n' "$(openssl rand -base64 32)" > config/kek)
 sudo chown 10001:10001 config/kek && sudo chmod 0400 config/kek
 export HH_SECRETS_KEK_PROVIDER=file HH_SECRETS_KEK_FILE=/etc/harness/kek
 # Back up config/kek separately: losing it loses every secret.
+# If config/kek already exists, reuse the original key; never overwrite it.
 
 docker compose --profile observability up -d --build
 docker compose ps                     # harness should become healthy
@@ -95,10 +127,13 @@ docker compose exec harness homelab-harness-owner enroll
 The CLI uses an owner token. MCP clients never get these.
 
 ```bash
-(umask 077; docker compose exec -T harness homelab-harness-token create --client hh --role owner > ~/.config/hh-token)
+mkdir -p ~/.config
+(umask 077; set -C; docker compose exec -T harness homelab-harness-token create --client hh --role owner > ~/.config/hh-token)
 export HH_CLI_TOKEN_FILE=~/.config/hh-token HH_CLI_URL=http://127.0.0.1:8080
 uv run hh health
 ```
+
+If the owner token file already exists, reuse it instead of rerunning the create command. Passkey/OAuth login authenticates MCP clients; the dashboard and `hh` currently require this separate owner bearer token. Never paste the owner token into an AI chat or MCP client configuration.
 
 ## 5. Put the Proxmox token in the vault, then register the cluster
 
@@ -108,6 +143,8 @@ uv run hh secret show pve-home-read     # metadata only; the value is never show
 ```
 
 Create `deploy/config/targets.toml`:
+
+The commands above left the shell in `deploy/`, so the local path is `config/targets.toml`. Merge with any existing target entries rather than overwriting them.
 
 ```toml
 [[proxmox]]
@@ -123,8 +160,9 @@ token_secret = "secret://pve-home-read"
 
 ```bash
 sudo chown 10001:10001 config/targets.toml
+sudo chmod 0640 config/targets.toml
 export HH_TARGETS_FILE=/etc/harness/targets.toml
-docker compose up -d harness            # restart picks up the targets
+docker compose up -d --force-recreate harness  # recreate picks up the targets/env
 curl -s localhost:8080/readyz           # proxmox:home → ok (degraded means it can't read the cluster)
 ```
 
@@ -153,6 +191,8 @@ Both open the browser. Log in with your passkey, then approve the consent screen
 
 If OAuth fails, you can fall back to a legacy bearer token on the tailnet: create one with `docker compose exec harness homelab-harness-token create --client claude-code`, then add it with `claude mcp add … --header "Authorization: Bearer <token>"`.
 
+Use a dedicated **MCP-role** token for that fallback, never the owner token used by `hh` and the dashboard. Supply it through the client's supported local credential configuration, not through the model's conversation.
+
 ## 7. Try it
 
 Ask your client:
@@ -169,6 +209,10 @@ Then open:
   ```bash
   docker compose exec postgres psql -U harness -c "select seq, occurred_at, kind, actor, target from audit_events order by seq desc limit 20"
   ```
+
+Summary pages should show live data. **Tasks is currently an empty placeholder**; task history is available through MCP read tools, not yet through that tab. No page should offer working power, delete, storage, network or other infrastructure changes at this stage.
+
+Test access boundaries too: an unauthenticated UI API read must return 401; an MCP-role token must not unlock `/api/secrets` or `/api/ui`; an owner-role token must not work at `/mcp`. Revoke a dedicated test MCP client with `hh clients revoke <id>` (check `hh clients --help` for the current syntax), then confirm that client's next tool request fails. Keep your normal owner token and recovery codes untouched.
 
 ## What to report back
 
@@ -187,9 +231,10 @@ Then open:
 
 ```bash
 docker compose --profile observability down        # keeps data volumes
-docker compose --profile observability down -v     # deletes the DB, metrics and logs too
 sudo tailscale serve --https=443 off
 ```
+
+`down -v` is **not** routine teardown: it permanently deletes the database, vault ciphertext, metrics and logs. Use it only for an intentionally disposable test deployment after checking the Compose project name and backups. Keep the KEK backup separate from the database backup.
 
 To remove the Proxmox identity, run this on a node: `pveum user delete harness@pve; pveum pool delete agent-managed`, then delete the `Harness*` roles with `pveum role delete`.
 
