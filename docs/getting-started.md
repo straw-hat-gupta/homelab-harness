@@ -43,6 +43,7 @@ Continue below for the full stack and real read-only data. GitHub's historical C
 
 ## 0. What you need
 
+- **Proxmox VE 9.0 or newer** (9.2 recommended). The adapter rejects older versions; check this before creating the harness identity.
 - **A Linux host for the harness**, ideally an LXC or VM in the lab, with Docker (Compose v2), Tailscale and Git. The harness must reach a Proxmox node on port 8006.
 - **On that host or your workstation:** [uv](https://docs.astral.sh/uv/), for the `hh` CLI and the helper commands.
 - **Your workstation** with Claude Code or Codex, on the same tailnet.
