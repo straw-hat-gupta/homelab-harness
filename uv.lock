@@ -514,7 +514,7 @@ wheels = [
 
 [[package]]
 name = "dbos"
-version = "3.4.0"
+version = "3.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -523,10 +523,11 @@ dependencies = [
     { name = "python-dateutil" },
     { name = "pyyaml" },
     { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2d/08/052506573c83ccc7703170bddd41eda9d9940d09d75d5062a0f6b318280f/dbos-3.4.0.tar.gz", hash = "sha256:e152a517686fd1875b6eb3d6bf83c87f700a6c244fe872b6da7955f750e18953", size = 567255, upload-time = "2026-10-28T15:25:35.464Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5d/ce/284331a99916b37bcfefaf838f4583f923c57c48928df397a56773a42a7b/dbos-3.6.0.tar.gz", hash = "sha256:35c46baa53249ab26cab4fc1f105971a647c7fc436efe5a71a342d9cf658e0a6", size = 621618, upload-time = "2026-11-17T15:55:15.294Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/00/30/cf52e34d3c6d9b852b0178d558e1d903c36b4dd97d8ab7158b4af8171f4a/dbos-3.4.0-py3-none-any.whl", hash = "sha256:78f6015dbcfffb1a981a371a37a46b1991949b3bf9b5f03d1588f53475081912", size = 269879, upload-time = "2026-10-28T15:25:33.671Z" },
+    { url = "https://files.pythonhosted.org/packages/d6/3c/030bd58d1f1f54942ea5d2690d21adedfa5d19722409cd86606921a8d91f/dbos-3.6.0-py3-none-any.whl", hash = "sha256:bed76236c8225d9da34d3f5c641dbc55249e113da071757f0d99fde6d1af58ac", size = 290418, upload-time = "2026-11-17T15:55:13.364Z" },
 ]
 
 [[package]]
