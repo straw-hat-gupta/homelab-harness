@@ -25,3 +25,7 @@ Temporary validation tooling ran outside the committed tree. There is intentiona
 No runtime integration, model login, paid inference, live-lab operation, deployment, database reset or deletion of owner credentials/untracked work was performed. Application pytest/lint/type checks, frontend/browser checks and container builds are inapplicable because their source/configuration was intentionally retired together. Prior 704-test results belong to the preserved implementation and are not coverage of this checkpoint.
 
 All [Stage 1](stage-1.md) acceptance remains outstanding. When code returns, add the scoped automated checks and separate owner-lab evidence required by that increment.
+
+## Host-availability follow-up, 2026-11-20
+
+Documented the maintainer's required later hosting-node recovery goal in future intentions, roadmap and R-54, with an Unreleased changelog entry. Validation: 48 docs/legal/metadata files; all 142 relative links, 7 local heading anchors and 22 non-v0 tables pass; diff whitespace clean. Stage 1, safety and secrets files are unchanged. Proxmox's HA documentation was consulted for the migration-versus-recovery distinction. No HA, migration, storage, fencing, failure test or live infrastructure change was performed; the requirement is not implemented.

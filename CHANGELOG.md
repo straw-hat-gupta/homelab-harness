@@ -11,6 +11,7 @@
 
 ### Added
 
+- Future host-availability requirement: planned VM migration and cluster-managed recovery after hosting-node failure, with persistent state, stable client reconnection, explicit recovery objectives and no duplicate execution (R-54). Outside Stage 1; not implemented.
 - Active ADR-0012, Stage 1 contract, code-reuse policy, future intentions and documentation-validation record.
 
 ## Earlier history
