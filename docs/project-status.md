@@ -82,6 +82,8 @@ Cloudflare, Docker, Linux, Obsidian, full Proxmox-UI replacement, phone approval
 
 ## Testing it, step by step
 
+The 2026-11-20 local verification passed **704 Python tests, 58 UI unit tests and 6 browser tests**, plus lint, formatting, strict types, generated API checks, the image build and dependency vulnerability scans. A disposable local Compose deployment also verified migrations, database/DBOS readiness, the development vault, owner/MCP token separation, client revocation and secret metadata surviving a harness restart. Its deliberately configured development environment-key provider reports `degraded`; this is expected and is not a production vault configuration. These checks used no real Proxmox target, passkey device or external MCP client.
+
 Use [getting-started.md](getting-started.md) for exact commands. Proceed in this order, stopping at a failed checkpoint:
 
 1. **Local checks, no lab:** install locked dependencies, run the full Python suite with Docker, UI checks/build, generated-types check and browser smoke. Expected: no skipped DB tests, no broken documentation links, no browser/CSP errors.
