@@ -4,6 +4,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed (dependency refresh)
+- Consolidate the pending Python updates: DBOS 3.6.0, FastAPI 0.163.1, Pydantic 2.14.3 (pydantic-core 2.50.4), Typer 0.29.1 and Ruff 0.17.5. Keep the existing dependency ranges and refresh the shared uv lock. Update the Node build/CI image to 26.13.1 and apply the compatible pending UI/tooling updates. Keep TypeScript 6.0.3 because typescript-eslint 8.73.0 requires TypeScript <6.1; the proposed 7.0.2 upgrade is unsupported.
+
 ### Fixed
 - Complete the dashboard's owner-token setup command and clarify the separate dashboard/MCP login paths. Refresh the current-state summary and first-run guide, including local-only verification, existing-key preservation, and safe teardown.
 

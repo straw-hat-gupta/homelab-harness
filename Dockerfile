@@ -4,7 +4,7 @@
 # into a slim runtime image that runs as an unprivileged user.
 
 # Node 26 is the active LTS line; the image carries none of it, only ui/dist.
-FROM node:26.13.0-trixie-slim AS ui
+FROM node:26.13.1-trixie-slim AS ui
 RUN npm install --global --no-fund --no-audit pnpm@12.16.1
 WORKDIR /ui
 COPY ui/package.json ui/pnpm-lock.yaml ./
