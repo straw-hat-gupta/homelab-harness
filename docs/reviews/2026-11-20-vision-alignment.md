@@ -1,5 +1,7 @@
 # Vision alignment review and proposed development stages
 
+> **Historical proposal; agent-loop ownership superseded on 2026-11-20.** The maintainer subsequently clarified that Homelab Harness should launch the real, unmodified `claude` or `codex` program in the background. That runtime owns subscription authentication and the agent loop. The previous own-loop requirement, direct-provider feasibility gate and corresponding Stage 1A below are no longer the direction. Use the [revised CLI-first runtime-wrapper plan](../plans/cli-first-runtime-wrapper.md). The document inventory and other scope findings remain reference material; this review never replaced the binding specification.
+
 Reviewed on 2026-11-20 against `main` / `origin/main` at `a97f2aa`. Both refs matched after fetching. Scope: the 48 active tracked Markdown documents, with the nine v0 documents treated as historical reference. The supplied harness-architecture article and the maintainer's subsequent clarifications define the comparison. This is a findings document and a proposal, not a replacement specification or an implementation claim.
 
 ## 1. The product the maintainer now wants
