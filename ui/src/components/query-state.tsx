@@ -23,8 +23,8 @@ export function OwnerTokenPrompt() {
     <form onSubmit={submit} className="space-y-2 text-sm">
       <p className="text-muted-foreground">
         The harness needs an owner token. Create one with{" "}
-        <code className="font-mono">homelab-harness-token create --role owner</code>. Passkey login
-        replaces this.
+        <code className="font-mono">homelab-harness-token create --client hh --role owner</code>.
+        The dashboard currently uses this token even when passkey login is enabled for MCP.
       </p>
       <div className="flex gap-2">
         <Input

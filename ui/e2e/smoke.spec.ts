@@ -87,6 +87,9 @@ test("the theme switches between light and dark", async ({ page }) => {
 test("the server answers 401 without a token and the UI asks for one", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByLabel("Owner token").first()).toBeVisible();
+  await expect(
+    page.getByText("homelab-harness-token create --client hh --role owner").first(),
+  ).toBeVisible();
 });
 
 test("screenshot", async ({ page }) => {
