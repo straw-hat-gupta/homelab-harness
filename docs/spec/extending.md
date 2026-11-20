@@ -1,143 +1,21 @@
-# Extending the harness
+# Extending without inheriting a platform
 
-> **Status: specification, partly implemented.** This is the contract that makes "ask my coding agent to add X" work. **Built:** `@read_tool`, `Capability`, `Manifest`, `ToolContext`, the `homelab_harness.capabilities` entry point, and the contract test kit for read tools ([below](#the-sdk-surface-as-built-for-read-tools)). **Not yet:** `@plan_tool`, `@step`, the template and the skill (see the [roadmap](../roadmap.md)).
+> **Status: binding design discipline; implementation formats remain unselected.** Stage 1 needs a small typed read registry, not a complete plugin/catalog framework.
 
-## The one rule
+Before adding anything, search existing active tools/configuration and the relevant [archived source](../code-reuse.md). Use the smallest addition that satisfies the current accepted task. An unimplemented search/catalog command is not a prerequisite to writing the first read tool.
 
-**A new capability is a new package under `capabilities/`. You don't edit `core`.** If a capability seems to need a core change, that change is a separate PR that extends the SDK for every capability, with its own ADR when it touches safety.
-
-## What a capability provides
-
-```
-capabilities/<name>/
-  manifest.toml        # name, version, targets it manages, credential tiers + required scopes,
-                       # tool list with tiers, min target versions
-  adapter.py           # typed external calls; timeouts; maps errors to sdk.errors.*; no DB, no policy
-  models.py            # pydantic types for the domain (inputs, inventory rows, plan parameters)
-  tools.py             # @read_tool and @plan_tool functions (MCP surface)
-  planners.py          # build Plan: preflight checks, observed facts, preview, steps, rollback
-  executors.py         # @step functions run by core jobs; each declares retry class
-  inventory.py         # optional: sync function → typed rows + as_of
-  resources.py         # optional: MCP resources
-  steering/            # skills + runbooks for this domain (built into the pack)
-  tests/
-    fixtures/          # recorded responses (scrubbed)
-    test_contract.py   # one line: runs the shared contract kit against this capability
-    test_planners.py   # preflight/preview cases incl. refusals
-    test_executors.py  # success, each error class, ambiguity → uncertain
-evals/<name>/          # golden transcripts + injection cases for this domain
-```
-
-Packages use the src layout like the rest of the workspace: the modules above live in `capabilities/<name>/src/homelab_harness_<name>/`, next to `tests/` and `pyproject.toml`. `manifest.toml` ships **inside** the package, so core can read it with `importlib.resources` wherever the capability is installed. `capabilities/proxmox` is the first one.
-
-## The SDK surface as built for read tools
-
-```python
-from homelab_harness_sdk import ToolContext, ToolInput, ToolOutput, Untrusted, read_tool
-
-class NodeArgs(ToolInput):            # extra="forbid": unknown arguments are rejected
-    cluster: str | None = None
-    node: str
-
-class PoolText(Untrusted):            # target-sourced text goes in an envelope (S7)
-    comment: str | None
-
-class PoolsResult(ToolOutput):        # every result carries as_of
-    pools: list[PoolText]
-
-@read_tool(name="truenas.pool.list", credential="read", title="ZFS pools")
-async def list_pools(ctx: ToolContext[TrueNasClient], args: NodeArgs) -> PoolsResult:
-    """The docstring is the tool description the model sees."""
-    async with ctx.adapter(args.cluster) as client:   # bound to the declared credential tier
-        ...
-```
-
-The package exposes `CAPABILITY = Capability(manifest=Manifest.load("homelab_harness_<name>"), target_model=…, connect=…, probe=…, tools=(…))` and registers it in `pyproject.toml`:
-
-```toml
-[project.entry-points."homelab_harness.capabilities"]
-truenas = "homelab_harness_truenas.capability:CAPABILITY"
-```
-
-`manifest.toml` lists every tool under `[tools]` with its credential tier. `Capability` refuses at import a tool without the capability prefix, a duplicate, or an undeclared tier. Core never imports the package by name, and a test enforces that.
-
-## The SDK surface (planned, illustrative)
-
-```python
-from homelab_harness_sdk import read_tool, plan_tool, step, Preflight, Preview, RetryClass, Tier
-
-@read_tool(credential="read")
-async def list_pools(ctx, node: str) -> list[ZfsPool]: ...
-
-@plan_tool(kind="truenas.dataset.create", default_tier=Tier.T2, credential="write")
-async def plan_dataset(ctx, pool: str, name: str, quota_gb: int | None = None) -> PlanDraft:
-    live = await ctx.adapter.get_pool(pool)
-    return PlanDraft(
-        parameters=DatasetCreate(pool=pool, name=name, quota_gb=quota_gb),
-        observed={"pool_guid": live.guid},
-        preflight=[Preflight.check("pool healthy", live.health == "ONLINE", evidence=live.health)],
-        preview=Preview.create(f"{pool}/{name}", fields={"quota": quota_gb or "none"}),
-        steps=["create_dataset"],
-        rollback="destroy dataset (harness can do this; data written since is lost)",
-    )
-
-@step(retry=RetryClass.IDEMPOTENT)          # safe to repeat: create-if-absent
-async def create_dataset(ctx, p: DatasetCreate) -> StepResult: ...
-```
-
-Core turns these into MCP tools with JSON Schemas, assigns tiers through policy, stores plans, runs approvals and jobs, and emits telemetry and audit records. The capability never sees an approval and never decides a tier, though it may *suggest* one.
-
-## The contract test kit (applies to every capability automatically)
-
-*Built for read tools* as `homelab_harness_sdk.testing.CapabilityContract` (install `homelab-harness-sdk[testing]`). A capability's `tests/test_contract.py` subclasses it and supplies `sample_arguments`, an adapter factory, and success routes with a canary planted. The kit mocks all HTTP with respx. Implemented today: schemas, classification (read only), credentials (both ways against the manifest's `[tools]`), error mapping, redaction (results, errors and the capability's logs), no secret-named output field (R-34), and untrusted envelopes for text fields (exemptions need a written reason). Tiers, retry classes, preview and steering arrive with plan tools and steering.
-
-| Check | Fails when |
+| Need | Smallest appropriate addition |
 |---|---|
-| Schemas | A tool's input or output schema isn't valid JSON Schema, or the docstring or description is empty |
-| Classification | A tool is neither `@read_tool` nor `@plan_tool`, or an adapter write method is reachable from a tool |
-| Tiers | A plan kind matching a safety floor pattern declares a lower default tier |
-| Retry classes | An executor step has no retry class, or an `unsafe` step is retried in the recovery test |
-| Error mapping | Fixture-driven 401, 403, 404, 409/lock, 429, 5xx and timeout don't map to the shared error types |
-| Redaction | The canary secret or body shows up in logs, spans, previews, errors or audit |
-| Credentials | A tool uses a credential tier that the manifest doesn't declare |
-| Preview | A plan has no rollback note, no preview diff, or no observed facts for the re-preflight |
-| Steering | A tool has no mention in at least one skill or runbook (keeps steering in sync) |
+| Different filter/detail over known facts | Typed query/configuration over the existing source |
+| Missing fact | One adapter mapping/read and a bounded view, with source/freshness and failure tests |
+| Another task using existing operations | Compose proven primitives rather than copy logic |
+| A new runtime | First demonstrate its actual control/auth/tool restrictions; extract shared adapter code only from real duplication |
+| Future repeatable write | Typed recipe/steps through the existing plan/approval/verify boundary |
+| Future GUI view | Reuse data and a visual template; no frontend-owned policy |
+| Future generated tool | Draft outside trusted execution, test, review and owner-install before exposing it |
 
-## Extension types: pick the smallest one that fits
+Inputs are typed and lab-independent: no hard-coded owner node/storage/bridge names. Resolve entity references under the selected instance and authority. Adapters do not import interface code or own policy. New tools declare scope, read/write classification, source/freshness, deadlines/output limits, safe failures and examples. Add tests for success, relevant target errors, canaries and untrusted fields.
 
-Most extensions are **not** new capabilities. Search the catalog first ([catalog.md](catalog.md)), then pick the smallest kind of extension that does the job:
+A tool cannot register another tool, change permissions, expose a secret or bypass native-runtime restrictions. Reusing a binary/library does not grant it owner authority. A missing operation is refused; raw shell is not a Stage 1 fallback.
 
-| You want… | Add | Code? | Spec |
-|---|---|---|---|
-| A new view of existing data | A **widget config** (template + data source + params) | No | [catalog.md](catalog.md) |
-| Data that isn't exposed yet | One **data source** (usually a query over the lab state) | A little | [catalog.md](catalog.md) |
-| A new visual shape | A **widget template** | Yes, UI only | [catalog.md](catalog.md) |
-| A repeatable operation built from existing steps | A **script recipe** (YAML argv), or a composite recipe | Little or none | [recipes.md](recipes.md) |
-| An operation needing new logic | A **recipe**, reusing existing steps | Yes | [recipes.md](recipes.md) |
-| A new tab, page or action in the UI | A **UI extension**. Recipe-backed actions are generated automatically. | Little | [ui.md](ui.md#extension-points) |
-| A new fact agents should know | A lab-state field plus a renderer section, or an **annotation** | A little | [lab-state.md](lab-state.md) |
-| A new system (PBS, TrueNAS, UniFi) | A **capability** package | Yes | below |
-
-Every kind of extension has its own contract test, and all of them are indexed in the catalog. Anything new must be reusable: typed inputs, no hard-coded lab names (use the [lab profile](onboarding.md#lab-profile)), documented, and tested.
-
-## The coding-agent workflow
-
-The repo ships skills that are exposed to Claude Code and Codex:
-- `steering/dev/extend-harness/SKILL.md`: search the catalog, then pick the smallest extension type, reuse existing parts, add tests and update the catalog.
-- `steering/dev/new-capability/SKILL.md`: for genuinely new systems. It walks the agent through these steps:
-1. Copy `capabilities/_template`, rename it, and fill in `manifest.toml`.
-2. Write the adapter against the target's API docs, then record and scrub fixtures.
-3. Add read tools first, run the contract kit, and open a PR (useful on its own).
-4. Add plan tools: preflight, preview, steps and rollback, plus planner tests that include refusals.
-5. Add executors with retry classes and executor tests, including the ambiguity case.
-6. Write steering: one skill and one runbook. Add an eval case and an injection case.
-7. Update `docs/spec/capabilities/<name>.md` and the CHANGELOG.
-
-## Example extensions (designed for, not in v1)
-
-| Capability | Notes |
-|---|---|
-| `pbs` | Proxmox Backup Server: datastore usage, verify jobs, restore drills. Same API shape as PVE. |
-| `knowledge` (the "RAG server") | Indexes the Obsidian vault, runbooks and lab docs. With no local models and no embedding API, it starts with Postgres full-text search (BM25-style ranking) plus *agentic retrieval*: it exposes `search`, `read`, `outline` tools and lets the client model iterate. If an embedding API key is added later, hybrid search with pgvector is a drop-in addition behind the same tools. |
-| `truenas`, `unifi`, `home_assistant` | Home Assistant already ships an MCP server. A thin capability can proxy it through the harness's policy and audit, or the owner connects it directly to clients for non-infra use. |
-| `opentofu` | Declarative backend for fleet changes. `tofu plan -detailed-exitcode` output becomes the preview, and `apply` the executor. |
+Package discovery, decorators, schema formats, SDK extraction, catalog indexing and duplicate-detection automation are later implementation decisions based on actual needs. Do not import them wholesale from the snapshot. [Future intentions](../future.md) preserve reusable widgets/operations without choosing their code structure now.

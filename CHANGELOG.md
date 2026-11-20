@@ -1,166 +1,18 @@
 # Changelog
 
-All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
-
 ## [Unreleased]
 
-### Changed (dependency refresh)
-- Apply the follow-up Pydantic Settings 2.16.3 and pytest-asyncio 1.5.0 updates after validating the combined versions.
-- Consolidate the pending Python updates: DBOS 3.6.0, FastAPI 0.163.1, Pydantic 2.14.3 (pydantic-core 2.50.4), Typer 0.29.1 and Ruff 0.17.5. Keep the existing dependency ranges and refresh the shared uv lock. Update the Node build/CI image to 26.13.1 and apply the compatible pending UI/tooling updates. Keep TypeScript 6.0.3 because typescript-eslint 8.73.0 requires TypeScript <6.1; the proposed 7.0.2 upgrade is unsupported.
-
-### Fixed
-- Complete the dashboard's owner-token setup command and clarify the separate dashboard/MCP login paths. Refresh the current-state summary and first-run guide, including local-only verification, existing-key preservation, and safe teardown.
-
-### Added (web UI foundation, UI-1)
-- `ui/`: a React 19 + Vite + strict TypeScript app with TanStack Router (file routes) and Query, Tailwind 4 and shadcn/ui, built with pnpm 12 on Node 26. An app shell (top bar with ⌘K search, side tree of datacenter → nodes → guests plus storage, object pages, light and dark themes).
-- Extension registries discovered with `import.meta.glob`, each with a Zod-validated `define*` helper: object types (`datacenter`, `node`, `qemu`, `lxc`, `storage`), object tabs (`summary`, `tasks` as a placeholder), actions (the type only; none shipped), and widget templates (`stat`, `table`, `status-list`, `markdown`, `log-tail`). The command palette is derived from them. Guide: `ui/README.md`.
-- An **interim** owner-only read façade for the UI: `GET /api/ui/tree` and `GET /api/ui/objects/{type}/{id}/summary`. It calls the Proxmox read tools through capability discovery, returns owner-safe errors, and writes one `ui.read` audit event per request (fail closed). The Stage 2 lab state replaces it. Mocked against Proxmox; not verified against a live cluster.
-- `HH_UI_DIR`: the harness serves the UI build at `/` with an SPA fallback that never shadows `/api`, `/mcp`, `/healthz`, `/readyz`, `/docs`, `/.well-known`, `/oauth` or `/owner`, immutable caching for hashed assets, `no-cache` for `index.html`, and a Content-Security-Policy with same-origin scripts only. The image builds the UI in a Node stage and sets `HH_UI_DIR`.
-- UI API types are generated from the app's OpenAPI document (`pnpm gen:api`, `scripts/export_openapi.py`). CI gains a `ui` job (lint, typecheck, Vitest, build, generated files up to date, Playwright smoke) and `pnpm audit --prod`; Dependabot watches `/ui`.
-
-### Added (Stage 1 trial)
-- `docs/getting-started.md`, a step-by-step guide to running Stage 1 against a real cluster: Proxmox identity script, TLS pin, Compose stack, vault KEK, owner passkey, vault-held Proxmox token, targets file, OAuth login from Claude Code and Codex, and what to check.
-- `deploy/compose.yaml` mounts a gitignored `deploy/config/` read-only at `/etc/harness`, and passes `HH_SECRETS_KEK_PROVIDER`, `HH_SECRETS_KEK_FILE` and `HH_TARGETS_FILE` through. Each is off when unset.
-
-### Fixed
-- An empty `HH_TARGETS_FILE`, `HH_SECRETS_KEK_PROVIDER` or `HH_SECRETS_KEK_FILE` now means "unset". This is what Compose passes for `${VAR:-}`. Before, an empty targets path became `.`.
-
-### Added (owner login and OAuth for MCP)
-- An embedded single-owner OAuth 2.1 authorization server for MCP clients (ADR-0007), on when `HH_PUBLIC_URL` is set. Metadata at `/.well-known/oauth-authorization-server` (RFC 8414) and `/.well-known/oauth-protected-resource[/mcp]` (RFC 9728); `/oauth/authorize` (PKCE `S256` only), `/oauth/consent` (owner session and CSRF; deny by default; shows the client, the redirect host and a loopback warning), `/oauth/token` (`authorization_code`, `refresh_token`), `/oauth/revoke` and `/oauth/register` (DCR, public clients only, rate-limited, `HH_OAUTH_DCR_ENABLED`). Client ID Metadata Documents are fetched with SSRF limits (https only, public resolved addresses pinned for the connection, no redirects, 5 s, 5 KiB). Responses carry `iss` (RFC 9207). Built on the MCP SDK's authorization-server handlers.
-- Access tokens are opaque, hashed in Postgres, 15 minutes by default (`HH_OAUTH_ACCESS_TOKEN_SECONDS`) and bound to `<HH_PUBLIC_URL>/mcp`. Refresh tokens rotate on every use; reusing a rotated refresh token, or an authorization code, revokes the whole grant. `/mcp` answers 401 with `WWW-Authenticate: Bearer resource_metadata="…"`. OAuth clients are audited as `client:cimd:<host>:<path>` or `client:dcr:<id>`.
-- Owner identity: `homelab-harness-owner enroll` (host only) prints a one-time passkey enrollment link and ten recovery codes (scrypt-hashed, single use); a second owner is refused, also by a database constraint. `--add-passkey` adds a passkey; `recovery-codes` replaces the codes. `/owner/login` signs in with a passkey (WebAuthn via py_webauthn, user verification required) or a recovery code. Sessions are `HttpOnly`, `SameSite=Lax`, `__Host-`/`Secure` over HTTPS, with a 15-minute idle timeout (`HH_OWNER_SESSION_IDLE_SECONDS`). Login, authorize, token and register are rate-limited.
-- `hh clients list|revoke` and `GET /api/clients`, `POST /api/clients/{id}/revoke`: list OAuth clients and client tokens, and end every grant of one client at once. `homelab-harness-token list|revoke` covers OAuth clients too.
-- Migration `0005` adds the owner, passkey, recovery-code, session, challenge and OAuth tables.
-- Verified: the full flow in tests against the ASGI app and Postgres, including with the MCP SDK's own OAuth client, and the metadata and 401 challenge against a locally run server. Not verified: a real browser passkey ceremony, and live Claude Code or Codex logins.
-
-### Changed (owner login and OAuth for MCP)
-- `homelab-harness-token` MCP tokens are now **legacy**: `/mcp` accepts them only while `HH_MCP_LEGACY_TOKENS=true` (the default for now; it will default to `false` once OAuth is verified with live clients). `homelab-harness-token list` prints the client kind (`token-mcp`, `token-owner`, `oauth-cimd`, `oauth-dcr`).
-- New dependency: `webauthn` (duo-labs/py_webauthn) for passkey verification; `httpx` is now a declared dependency of core (client metadata fetches).
-
-### Added (vault persistence)
-- The vault now persists: `secrets` (plain metadata, JSONB per kind) and `secret_versions` (ciphertext, nonces, wrapped DEK, KEK id; unique per secret and version), migration `0003`. `homelab_harness.secrets.service.VaultService` creates, rotates (new version; old ones kept), describes, lists, revokes, deletes and resolves secrets, and rewraps every DEK under the current KEK. Delete crypto-shreds: every version's ciphertext and wrapped DEK is deleted. Rewrap runs one transaction per version, so it can be interrupted and rerun, and a rerun changes nothing. Every operation is audited (`secret.created`, `.rotated`, `.revoked`, `.deleted`, `.used`, `vault.kek_rotated`) with names and ids only, never values, lengths or hashes.
-- An owner REST API under `/api/secrets` and `/api/vault/rotate-kek`. It accepts only **owner-role** tokens: `homelab-harness-token create --client hh --role owner` (migration `0004` adds a `role` to client registrations; existing tokens become `mcp`). Owner tokens are refused at `/mcp` and MCP tokens at `/api`. No route returns a value, and 422 responses no longer echo rejected input.
-- `hh secret add|list|show|rotate|revoke|delete|generate` and `hh vault rotate-kek`. Values come from a hidden prompt, `--stdin` or `--from-file`; a value on the command line is refused. `hh secret generate ssh_key` creates an ed25519 key inside the harness and prints only the public key and an `authorized_keys` line (optional `from=`). `hh` reads its token from `HH_CLI_TOKEN_FILE` or `HH_CLI_TOKEN`.
-- The targets file accepts `token_secret = "secret://<name>"` in place of `token_secret_file`. Handles are resolved through the vault once at startup (audited as `secret.used`); a missing or revoked secret, or a Proxmox `token_id` that differs from the secret's, stops startup.
-- The `vault` readiness check also queries the vault's tables once the database is open, and reports how many versions are still wrapped by an older KEK.
-- Verified locally against a throwaway Postgres 17 with the env KEK provider: add, generate, rotate, KEK rotation and restart with only the new KEK, and a `secret://` target resolved at startup. Not verified with the file or systemd-creds providers, nor against a live Proxmox node.
-
 ### Changed
-- The app enters its database lifespan before the MCP transport, so a startup error surfaces as itself rather than inside an exception group.
 
-### Changed (specification re-scope)
-- The harness's goal is now the same work as a plain agent with a shell, with far fewer tokens and no discovery. It also replaces the Proxmox web UI. Recorded in ADR-0010 and ADR-0011.
-- New specs:
-  - `lab-state.md`: deterministic lab model, `lab://` documents, Git mirror, centralized logs and `logs.query`.
-  - `recipes.md`: typed, composable, agent-reusable operations, including script recipes.
-  - `catalog.md`: data sources, widget templates, and reuse-before-create with anti-bloat checks.
-  - `onboarding.md`: `hh init` adopts an existing lab, plus the lab profile.
-  - `ui.md`: the v1 UI in increments UI-1 to UI-5, built on extension registries. It replaces `ui-vision.md`.
-- Updated docs:
-  - vision, architecture, steering (lab state first, recipes first, catalog first) and extending (extension types);
-  - failure attribution in observability, and a token-efficiency eval in testing;
-  - reliability requirements R-38 to R-46, the glossary, and AGENTS.md (reuse-before-create);
-  - the roadmap, re-ordered so the lab state and UI come in Stage 2.
-
-### Added (MCP server)
-- An MCP server at `/mcp` on the harness app: streamable HTTP, stateless, JSON responses, built on the official MCP Python SDK (`mcp` 2.3). It serves protocol 2026-07-28 and the earlier handshake versions. Everything below is **mocked against Proxmox; not verified live** against a PVE node or against Claude Code or Codex. The SDK's own client was run against a local server.
-- 18 Proxmox read tools (`proxmox.cluster.list`, `.cluster.resources`, `.node.list`, `.node.get`, `.guest.list`, `.guest.get`, `.storage.list`, `.storage.status`, `.storage.content`, `.disk.list`, `.disk.smart`, `.network.list`, `.pool.list`, `.ha.status`, `.backup.jobs`, `.task.list`, `.task.get`, `.metrics.rrd`). Each has JSON Schemas and `readOnlyHint`/`idempotentHint`, and returns structured content with `as_of` plus a text rendering. Target-sourced text sits in `untrusted` envelopes, and `_meta` flags it. Guest config is masked: passwords, tokens, keys, `args`, `hookscript` and `cicustom` show as `[MASKED]`, and SSH keys only as fingerprints.
-- Capabilities are discovered through the `homelab_harness.capabilities` entry point. The SDK gains `@read_tool`, `ToolInput`, `ToolOutput`, `Untrusted`, `ToolContext`, `Capability`, `Manifest`, and the contract test kit `homelab_harness_sdk.testing` (extra `testing`).
-- **Interim** target registration: `HH_TARGETS_FILE` names a TOML file of clusters, each with a per-tier `token_id` and an owner-only `token_secret_file`. Secrets are read once and registered with the redactor. `/readyz` gains `proxmox:<name>` checks, which report `degraded` when a cluster is unreachable.
-- **Interim** MCP auth: per-client bearer tokens from `homelab-harness-token create|revoke|list` (new `mcp_clients` table, migration `0002`; only a SHA-256 hash is stored). Requests without a valid token get 401 with `WWW-Authenticate: Bearer`. **Tailnet only until OAuth (ADR-0007) lands.**
-- Every tool call writes an `mcp.tool_call` audit event (client, tool, target, outcome, duration; no arguments). If the audit write fails, the call fails.
-- The image now installs the Proxmox capability.
-
-### Fixed
-- The Proxmox adapter no longer hangs on a cyclic exception chain while looking for a TLS verification cause.
-- httpx and httpcore loggers are held at WARNING. httpx's INFO request line carried the response reason phrase, where Proxmox puts its error text.
-
-### Added (observability)
-- OpenTelemetry traces, metrics and logs over OTLP/HTTP, turned on by `HH_OTEL_EXPORTER_OTLP_ENDPOINT` (off when unset or empty), with `HH_OTEL_EXPORT_TIMEOUT_SECONDS` and `HH_OTEL_METRIC_EXPORT_INTERVAL_SECONDS`. Spans and metrics come from FastAPI requests, the app engine's queries and outgoing httpx calls.
-- Every span is redacted before export: span names, attributes, events, links and status pass the shared redactor (S9, R-16).
-- Log events logged inside a span carry `trace_id` and `span_id`. With telemetry on, the same redacted JSON events are also exported over OTLP.
-- `deploy/compose.yaml` gains an `observability` profile: OTel Collector, Prometheus, Tempo, Loki and Grafana, all pinned, with UIs on loopback only. Grafana needs `HH_GRAFANA_ADMIN_PASSWORD` (no default, anonymous access off). It provisions the datasources and a **Harness overview** dashboard: request rate, latency, 5xx share, readiness, pool, logs and recent traces.
-- The compose `harness` healthcheck now probes `/readyz` instead of `/healthz`.
-- The image sets `OTEL_SEMCONV_STABILITY_OPT_IN=http`, so it emits the stable HTTP metric names.
-
-### Added (vault crypto core)
-- `homelab_harness.secrets`: the vault's cryptographic core, with no persistence yet.
-  - Envelope encryption: a random 256-bit DEK per secret version, AES-256-GCM with random 96-bit nonces, and the DEK wrapped by the KEK. Both layers bind `secret_id`, version and kind (the wrapped DEK also binds the KEK id) as associated data. KEK rotation rewraps DEKs without touching ciphertext. Any tampering, or the wrong KEK, raises `SecretIntegrityError`; there is no plaintext fallback.
-  - KEK providers: a keyring file (refused unless it is mode 0400 and owned by the service user), systemd credentials, and an env variable for dev and test only (refused in prod). Selected with `HH_SECRETS_KEK_PROVIDER`. A configured provider that is missing or broken stops startup, and `/readyz` gains a `vault` check.
-  - Typed models for the kinds `ssh_key`, `password`, `api_token`, `proxmox_token`, `cloudflare_token`, `github_token`, `file` and `kv`, separating encrypted fields from plain metadata. Values are wrapped so they never show in `repr`, formatting or dumps, and are registered with the redactor as soon as they are decrypted. SSH keys derive their public key and `SHA256:` fingerprint.
-
-### Added (Proxmox read adapter)
-- A new workspace package, `homelab-harness-proxmox` (`capabilities/proxmox`). It imports only the SDK. Everything below is **mocked; not yet verified live** against a PVE node.
-- `ProxmoxClient`: an async, read-only Proxmox VE API client with typed pydantic models. It covers version, cluster status and resources, nodes and node status, node RRD metrics, QEMU and LXC lists, configs and status, storage config, status and content, disks and SMART, node network (with staged changes), pools, tasks with status and log (UPID-routed), HA status, and backup jobs.
-- TLS verification is mandatory: a CA bundle, a pinned SHA-256 certificate fingerprint, or the system store. There is no insecure mode. A pinned certificate becomes the connection's only trust anchor, so a swapped certificate is refused before the token is sent.
-- Proxmox failures map to the SDK error types (401, 403, 404/"does not exist", lock and conflict, 429 with `Retry-After`, 5xx/595, connect errors and timeouts). Messages never include response bodies, and the token secret never appears in `repr`, errors or logs.
-- A pure UPID parser, and `render_bootstrap_script()`, which renders the `pveum` script for the `harness@pve` user, its custom roles, ACLs, and privilege-separated `read`, `guest-ops` and `provision` tokens (golden-file tested).
-- A capability `manifest.toml` with the credential tiers.
-
-### Added (database)
-- Postgres persistence for the core: an async SQLAlchemy engine (psycopg 3) with explicit pool limits and a statement timeout, configured by `HH_DATABASE_URL` and `HH_DATABASE_*`. The URL's password is registered with the redactor at startup.
-- Alembic migrations shipped inside the package, run with the new `homelab-harness-migrate` command (`upgrade`, `downgrade`, `current`, `check`, `revision`).
-- An append-only `audit_events` table. Triggers reject UPDATE, DELETE and TRUNCATE, and `seq` is a unique, database-assigned order (R-13). `AuditWriter.record()` validates and redacts each event before inserting it.
-- DBOS is launched at startup when a database is configured, with its system tables in the `dbos` schema. `/readyz` gains `database` and `dbos` checks.
-- `deploy/compose.yaml` adds `postgres` (17, with a volume and a healthcheck) and a one-shot `migrate` service. `HH_POSTGRES_PASSWORD` is required and has no default.
-- Database tests run against real Postgres via testcontainers, in CI too.
-
-### Added (Stage 1 skeleton)
-- A uv workspace with three packages: `homelab-harness` (core), `homelab-harness-sdk` (shared error types, risk tiers, retry classes) and `homelab-harness-cli` (`hh version`, `hh health`).
-- Core service:
-  - FastAPI app with `/healthz`, and a `/readyz` that aggregates subsystem checks as ok, degraded or fail;
-  - settings read only from `HH_*` environment variables, with no implicit `.env` loading;
-  - structured JSON logging, where every event is redacted of sensitive keys and of registered secret values in common encodings.
-- A container image that runs as non-root, with a read-only filesystem and all capabilities dropped. Also `deploy/compose.yaml`.
-- CI jobs for ruff, strict pyright, pytest with coverage, pip-audit, a Docker build plus health check, docs links and gitleaks. The GHCR release workflow is restored with SBOM and provenance, and Dependabot now covers uv and Docker.
-- `AGENTS.md` is rewritten as the code-level guide, and `docs/development.md` is added.
-
-### Changed
-- The GitHub repository is renamed to `straw-hat-gupta/homelab-harness`.
-- The container image is back on `python:3.13-slim`, the version CI tests. Dependabot now proposes only patch updates for the Python base image; minor and major upgrades move CI, the lock target and the image together in one deliberate PR.
-
-### Removed
-- **BREAKING:** the v0 Django/DRF/Celery backend (all apps, dependencies, Docker image, Compose files, and the release workflow) is removed from `main` ahead of a rewrite. It is preserved at tag `v0-django-final`; its docs, the 2026-10-30 audit, and its 2026-10-31 cross-check moved to `docs/archive/v0/`.
-
-### Decided
-- The project is named **homelab-harness**, with an `hh` CLI. Owner auth is an embedded single-owner OAuth authorization server (ADR-0007, accepted).
-
-### Added (secrets specification)
-- `docs/spec/secrets.md` and ADR-0009 cover how secrets are handled:
-  - a built-in envelope-encrypted vault;
-  - grants per client and use mode, so agents use secrets by handle without seeing values;
-  - SSH signing inside the harness, and egress routes that inject credentials;
-  - owner intake through the CLI, a passkey-protected page, and MCP URL-mode elicitation.
-- New reliability requirements R-34 to R-37, threat-model rows T-17 to T-19, and glossary terms.
-
-### Added (rewrite specification)
-- `docs/spec/` defines the rewrite as an AI control plane for Proxmox home labs:
-  - vision, architecture, safety model, threat model, and client connections (bring your own subscription);
-  - observability, reliability requirements R-01 to R-33, testing and evals, extending, steering, and the post-v1 UI;
-  - capability specs for Proxmox, Linux and Docker, Cloudflare, and Obsidian.
-- ADRs 0001–0008, `GLOSSARY.md`, and a staged `docs/roadmap.md` with open decisions.
-
-### Changed
-- CI checks documentation links and scans for secrets until code returns. Dependabot watches GitHub Actions only.
+- Reconcile the product as a CLI-first, cluster-hosted wrapper around unmodified official agent runtimes. The runtime owns its subscription login and loop; the harness supplies lab context, typed tools, authorization and session lifecycle.
+- Reset the active repository to documentation, legal notices and minimal Git metadata. Source, tests, dependency locks, build/deployment configuration, assets and executable workflows are retired together; the full implementation is preserved at `a97f2aa` on `archive/pre-cli-restart-2026-11-20`.
+- Define read-only Stage 1 increments 1A–1E with separate automated, real-model fixture and owner-lab acceptance. GUI, writes and supervision are later intentions.
+- Retain safety S1–S10 and secrets protections; disable automatic target-change approval initially. No restarted application or live integration is claimed implemented.
 
 ### Added
-- Repository created from the Aiva backend (`Arceus-Aiva/Aiva@f4733e9`) with fresh history, MIT license, NOTICE, and ORIGINS.
-- GitHub Actions CI: lint, Django checks, migration drift check, tests on Postgres, gitleaks, and a Docker build.
-- `AGENTS.md` and `CLAUDE.md` steering docs (Django-native layering, assistant safety rules, coding and testing practices, Conventional Commits and PR conventions) and a PR template.
-- Release workflow that publishes versioned images to GHCR after CI passes, with a build-only dry run on PRs that change it. Dependabot for Actions and pip.
-- Documentation: architecture, configuration, HTTP API, development and CI/CD, roadmap.
-- `manage.py export_tool_reference` generates `docs/tools.md` from the registry; a test fails when the file is stale.
-- `requirements.in` with direct dependencies; `requirements.txt` is now a fully pinned uv lock, including previously unpinned transitive packages.
 
-### Changed
-- The tuning variables `PLANNER_TIMEOUT`, `PROCESSING_LLM_TIMEOUT`, `PROCESSING_LLM_MAX_TOKENS`, `TOOL_STEP_TIMEOUT`, `PLAN_CACHE_TTL`, `AGENT_THROTTLE_RATE`, `AGENT_MAX_MODIFY_REVISIONS`, and `PLANNER_USAGE_RETENTION_DAYS` are now read from the environment. They were documented before but ignored. Defaults are unchanged.
-- Lint covers all pyflakes rules; inherited unused imports were removed.
-- GitHub Actions updated to their current major versions (Node 24).
+- Active ADR-0012, Stage 1 contract, code-reuse policy, future intentions and documentation-validation record.
 
-### Fixed
-- Test discovery now runs every test (423 at extraction; previously 256). The suite passes on Postgres with exit code 0.
-- Garbled characters (mojibake) and UTF-8 BOMs in several tool modules, including the `processing_llm` description shown to the planner.
+## Earlier history
 
-### Removed
-- About 40 unused dependencies (Flask, Supabase client libraries, MCP tooling, and others), plus the unused `SUPABASE_ANON_KEY` setting.
-- Supabase login helper, unused prompt/server scripts, dead test helper, the Aiva GHCR image compose file, and the original Aiva docs.
+The [previous changelog](https://github.com/straw-hat-gupta/homelab-harness/blob/a97f2aacd611f0a6b666f336fda57fad88c27080/CHANGELOG.md) preserves all earlier implementation/dependency changes. The [v0 archive](docs/archive/v0/README.md) covers the earlier Django product. Historical versions and test results do not describe this documentation-only checkpoint.

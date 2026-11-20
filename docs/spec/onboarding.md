@@ -1,84 +1,26 @@
-# Onboarding: adopting an existing home lab
+# Onboarding
 
-> **Status: specification.** Nothing here is implemented yet. Goal: someone with a running lab (any number of nodes, their own naming, storage and guests) gets a populated lab state and UI in minutes, without reinstalling anything and without the harness reorganizing their lab.
+> **Status: binding target design; not implemented.** No installer or `hh` setup command exists in the active repository.
 
-## Principles
+Initial scope is a manually prepared dedicated service guest. Automatic creation/configuration of that guest is deferred. The operator need not install an agent or collector on each Proxmox node.
 
-1. **Adopt, don't impose.** The harness learns the lab as it is: node names, storage IDs, bridges, VLANs, VMID ranges, pools and tags. It never renames, moves or "normalizes" anything.
-2. **Read-only first.** Discovery uses only read access. The only changes made during onboarding are the harness's own Proxmox user, roles and tokens, plus an optional log collector. The owner sees each change as an exact script or plan and approves it.
-3. **Works for 1 to N nodes, clustered or standalone.** It handles a single node, a cluster, several standalone nodes, and mixed versions (each node's version is recorded; recipes check it).
-4. **Each part is optional.** Proxmox is required. Linux hosts, Docker hosts, Cloudflare, Obsidian and log collection can each be added later with `hh connect <capability>`.
+## Planned sequence
 
-## The `hh init` flow
+1. Choose and manually prepare the service guest. Record which node hosts it and what persistence is backed up. Supported guest/install method remains a 1A decision.
+2. Install one unmodified official agent runtime. Guide its supported subscription login and retain its protected state on the guest.
+3. Prove instructions, a harmless fixture tool, streaming, continuation, bounded stopping and native-tool isolation before supplying a target credential.
+4. Configure one Proxmox endpoint, expected cluster identity and verified TLS trust. Confirm trust through a trusted owner channel; never disable verification.
+5. Supply a read-only target credential through owner-only hidden intake. It stays in the broker; the runtime gets a handle/tool, not a value. Reuse an appropriate existing read token or show a separately reviewed identity-setup procedure. Do not create write tiers, pools or collectors automatically.
+6. Run deterministic discovery and compare it with Proxmox. Report insufficient permissions precisely; never escalate automatically or rename/reorganize existing lab resources.
+7. Pair the Mac using one encrypted authenticated private transport. Save the instance connection and reference to client access, not provider or Proxmox credentials.
+8. Open the interactive session and complete the Stage 1 questions, restart/reconnect checks and acceptance record.
 
-```
-$ hh init
-1. Harness basics      check DB, vault KEK, owner passkey, ntfy topic         (local, no lab changes)
-2. Proxmox endpoint    URL of any node; TLS: show cert fingerprint → owner confirms pin
-3. Harness identity    print exact pveum script (user harness@pve, roles, privilege-separated
-                       tokens per tier, ACLs, agent pool) → owner runs it on one node
-                       → paste token secrets into hidden prompts (stored in the vault)
-                       (or: --existing-token to reuse a token the owner already has, read tier only)
-4. Discovery           read-only sync of cluster, nodes, guests, storage, ZFS, disks, network,
-                       firewall, backups → summary: "3 nodes, 27 guests, 5 storages, 2 ZFS pools"
-5. Lab profile         propose defaults from what was found (see below) → owner edits/accepts
-6. Optional extras     log collector per node (recipe, T2) · Linux/Docker hosts (SSH key generated
-                       in the vault, public key + sudoers snippet printed) · Cloudflare · Obsidian
-                       · Git mirror of lab documents
-7. Verify              `hh doctor`: token scopes exactly as expected, sync fresh, docs render,
-                       UI reachable on the tailnet, MCP connection instructions for Claude/Codex
-```
+Re-running setup must show existing configuration and a proposed difference rather than overwrite it, replace encryption keys or duplicate an identity. Losing access cannot trigger silent token generation. A fresh Mac client can reconnect to existing service-side history.
 
-- Each step can be re-run (`hh init --step discovery`) and is idempotent.
-- A non-interactive mode, `hh init --config lab.toml`, supports scripted installs and the CI nested-PVE suite.
-- If the cluster already has a `harness@pve` user, or roles named like ours, init detects them and shows the diff instead of overwriting.
+## Boundaries
 
-## Lab profile
+Read-only discovery never mutates targets. Creating a guest, changing ACLs or installing node software is a separate owner action outside this initial read path, with explicit effects shown first. Future automated mutations must satisfy the safety model; they cannot be hidden inside onboarding.
 
-The lab profile holds the owner's conventions, **inferred from the existing lab** and confirmed by the owner. Recipes use it for defaults so that they work in any lab ([recipes.md](recipes.md#design-rules-so-agents-can-reuse-them) rule 4).
+No broad profile inference is required initially. Owner notes may record conventions, but model guesses are not silently accepted as defaults or permission. Credentials are never entered in chat or command-line arguments. Backups of encrypted records and their encryption key must be separate; demonstrate recovery before depending on them.
 
-```toml
-# lab profile (stored in the DB, editable with `hh lab profile edit`, exported to the Git mirror)
-[defaults]
-storage_for_disks = "local-zfs"        # inferred: most guest disks live here
-storage_for_iso   = "local"
-bridge            = "vmbr0"
-vmid_range        = [200, 299]         # inferred: unused range above existing guests
-agent_pool        = "agent-managed"    # created by the harness identity step
-naming            = "{role}-{n}"       # inferred from existing guest names, optional
-
-[templates]                            # discovered templates mapped to OS keys
-"ubuntu-24.04" = { vmid = 9000, node = "pve1" }
-"debian-13"    = { vmid = 9001, node = "pve1" }
-
-[annotations]                          # owner notes the docs and agents use
-"pve3" = "backup node, don't schedule workloads"
-"vlan:20" = "IoT"
-```
-
-- Every inferred value says why it was inferred ("38 of 41 guest disks are on local-zfs"), and the owner can change it.
-- When a recipe needs a default that doesn't exist (for example no template for the requested OS), its preflight says exactly what's missing and offers the recipe that creates it.
-
-## Supported starting points
-
-| Lab | What happens |
-|---|---|
-| Single node, local storage | Works. Migrate and HA recipes report "not applicable". |
-| Cluster with HA and shared storage (Ceph, NFS) | Discovered and documented. Ceph management recipes are a later capability; v1 reads Ceph status only. |
-| Multiple standalone nodes, not clustered | Each node is a target. `lab://overview` covers all of them. |
-| Mixed PVE versions | Each node's version is recorded. Recipes declare a minimum version and refuse on older nodes. |
-| No templates, no backups | Docs and the UI flag these. Recipes are offered to create templates and backup jobs. |
-| Existing Cloudflare tunnels and DNS | Adopted read-only. The harness manages only what the owner marks as managed (`hh cloudflare adopt <tunnel>`). |
-| Existing Docker stacks | `hh docker adopt <host>` imports the compose projects it finds, so they can be managed from Git ([linux-docker.md](capabilities/linux-docker.md)). |
-
-## Removal
-
-`hh uninstall --lab` prints the exact commands to remove the harness's user, roles, tokens and collectors. Nothing the owner had before is touched. The lab state and Git mirror stay with the owner.
-
-## Tests
-
-- **Fixture-driven discovery** across lab shapes: single node, 3-node HA, standalone pair, mixed versions, no templates.
-- **Profile inference**, with explanations, on those fixtures.
-- **Init idempotency.** Re-running init produces no change.
-- **An existing `harness@pve` user** results in a diff, not an overwrite.
-- **The nested-PVE live suite** runs `hh init --config` against a fresh 2-node nested cluster and asserts `hh doctor` is green.
+The new setup flow and its exact commands will be documented increment by increment after implementation. See [getting started](../getting-started.md) for current status and [Stage 1](../stage-1.md) for gates.

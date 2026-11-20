@@ -1,20 +1,18 @@
-<!-- Title: Conventional Commits, e.g. "feat(proxmox): track async tasks by UPID" -->
+<!-- Use a Conventional Commit title. -->
 
 ## Summary
-<!-- What changed and why. One concern per PR. -->
--
 
-## Test plan
-<!-- Exactly what was run and the result. Check only what you actually ran. -->
-- [ ] `uv run pytest`: N passed
-- [ ] `uv run ruff check . && uv run ruff format --check .` clean
-- [ ] `uv run pyright`: 0 errors
-- [ ] New or changed behavior covered by tests (success and important failures)
+<!-- Problem, resulting behavior/direction and scope. -->
+
+## Validation
+
+<!-- Exactly what ran and its result. Docs-only work records links/inventory/consistency/archive checks. Code changes add the checks appropriate to the increment. -->
+
+- [ ] Current state and unimplemented behavior are distinguished
+- [ ] Safety/secrets protections preserved
+- [ ] No secrets or private lab payloads committed
+- [ ] Relevant checks and actual results recorded
 
 ## Notes
-<!-- Follow-ups, risks, anything mocked or not verified against a live system. Delete if empty. -->
--
 
-## Checklist
-- [ ] Docs and `CHANGELOG.md` (Unreleased) updated where relevant
-- [ ] No secrets, tokens, or personal data in code, tests, fixtures, or logs
+<!-- Open decisions, limits, fixture vs live evidence and owner acceptance still required. No historical test count as new coverage. -->

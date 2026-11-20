@@ -1,14 +1,10 @@
 # Safety model
 
-> **Status: specification.** Nothing here is implemented yet. This document is binding on all capabilities. A capability spec may make a rule stricter but never looser. Terms follow the [glossary](../../GLOSSARY.md).
+> **Status: binding requirements, not an implementation claim.** Stage 1 has no target writes. These requirements apply to all entry points and future features; they may only be made stricter. [Reliability](reliability.md) identifies the evidence required before shipping.
 
-## Why this exists
+## Preserved invariants
 
-The harness gives an AI model operator access to real infrastructure, where one wrong call can destroy disks, lock the owner out of the network, or put a service on the public internet. The model may be wrong. It may also be manipulated by text it reads: a VM description, a log line, a note, a DNS TXT record. The safety model assumes both will happen and makes the dangerous outcomes structurally impossible, rather than relying on the model behaving well.
-
-## Invariants
-
-These are tested properties of the system ([reliability.md](reliability.md) maps each one to a test). They are not guidelines.
+S1–S10 are retained verbatim from the previous safety contract. References to DBOS, ntfy and particular target examples in those rows describe the historical design, not mandatory infrastructure for the restart. Their safety meaning applies to any selected engine/channel. No current implementation or contract kit is claimed to exist.
 
 | ID | Invariant |
 |---|---|
@@ -23,85 +19,45 @@ These are tested properties of the system ([reliability.md](reliability.md) maps
 | S9 | **Secrets never leave the vault.** Capability tokens are encrypted at rest, never returned by any tool, never logged, and never included in previews, traces or errors. A canary-secret test covers every surface. Agents use secrets only by handle, through grants, in the brokered modes defined in [secrets.md](secrets.md). No MCP surface returns a value. |
 | S10 | **Everything is audited.** Request, plan, preview hash, policy decision, approval (who, which channel, when), job steps, external task IDs, outcome and verification are written to an append-only log. |
 
-## Risk tiers
+## Managed runtimes and Stage 1
 
-| Tier | Meaning | Approval | Examples |
-|---|---|---|---|
-| **T0** read | No side effect | None; no plan | List guests, read SMART, tail a journal, show tunnel config |
-| **T1** reversible, in scope | Fully reversible, and limited to resources the harness owns (agent pool, inbox file) | **Auto-approved** if `policy.auto_approve_t1` (default on). Owner is notified after. | Start, stop or snapshot a guest in the agent pool. Create a guest from a template in the agent pool. Add an Obsidian task. |
-| **T2** recoverable change | Changes something the owner cares about. Recovery is possible but not trivial. | Owner approval (one tap) | Config change on a non-agent guest, migration, compose `up` with new images, DNS record change, firewall rule addition, note edit via PR |
-| **T3** destructive or lockout | Irreversible data loss, or a risk of losing access | Owner approval **plus typed confirmation** of the target's identity (pool name, VMID plus name, disk serial suffix), using the CLI or UI. A phone tap alone is not enough. Re-preflight is mandatory. | Destroy a guest. Wipe a disk or create a ZFS pool. Snapshot rollback. Restore over an existing guest. Network apply. Firewall enable or policy change. ACL or token changes. Console or raw shell. Node reboot or upgrade. Publishing a public hostname. |
+- The model cannot approve through **any** runtime tool or interface. S2 is not limited to MCP. Owner configuration and future approvals are separate authorization paths, even if shown in the same terminal as chat.
+- Only a small target-allowlisted read registry is exposed. No target writes, raw shell, generic HTTP, arbitrary filesystem or tool-installation escape hatch is enabled.
+- Runtime-native tools must not read broker/provider credentials, modify trusted facts/instructions, reach owner-only APIs or bypass target policy. Supported restrictions and process/filesystem/network isolation must be demonstrated before a real target credential is supplied. A prompt or a read-only label is not enforcement.
+- The official runtime may use its own protected subscription login through its supported authentication code. The wrapper does not extract, store in its vault, relay or call model endpoints with those credentials. Model-directed tools cannot read them.
+- Each call/run has a deadline and output/call/context limits. Cancellation must propagate to children/tools, and external reads remain bounded independently. An interrupted run is recorded; it is not silently replayed or called successful.
+- Target text and persisted observations cannot become trusted instructions or add authority. Owner notes can describe preferences but cannot create grants or approve a plan.
+- Audit is append-only and fail-closed. If the operation cannot be recorded, its result is refused. Native transcripts are separate private data, not audit/log payloads.
 
-### Floors (in code; config cannot lower them)
+## Risk tiers and floors for future writes
 
-- Anything that deletes data, or makes data unreachable, is **T3**.
-- Anything that can sever the harness's or the owner's access to a target is **T3**: network, firewall, SSH config, ACLs, tokens, Tailscale ACLs.
-- A raw shell or arbitrary command is **T3**, and the preview shows the exact argv.
-- Any public exposure is **T3** and must include an access-control step in the same plan, or the plan is refused. See [cloudflare.md](capabilities/cloudflare.md).
-- Acting on a guest **outside** the agent pool is at least **T2**.
-- A plan whose step count exceeds `policy.max_steps` (default 20) is at least **T2**, so bulk changes get a human look.
+| Tier | Meaning | Minimum approval |
+|---|---|---|
+| T0 | No target side effect | Authorized read; no plan |
+| T1 | Fully reversible and inside harness-owned scope | Owner approval initially; automatic approval disabled by default |
+| T2 | Meaningful recoverable change | Authenticated owner approval |
+| T3 | Destructive, lockout or public exposure risk | Owner approval plus typed target identity confirmation, with apply-time re-preflight |
 
-### Raising tiers
+Floors cannot be lowered by configuration or model text. Deletion/unreachable data, access-path changes, arbitrary commands, console access, node reboot/upgrade and public exposure are T3. Public exposure must include access control in the same plan or be refused. Work outside a harness-owned scope is at least T2. A plan over the configured step limit (historically 20) is at least T2. A missing limit/policy is not permission to proceed.
 
-Config (`policy.toml`, versioned in the deploy repo) can raise tiers, for example "anything on `pve-prod` is T3". It can also add deny rules, such as "never touch VMID 100". Deny rules are checked at plan time and again at apply time.
+Policy may raise tiers and add deny rules. Deny rules apply at planning and execution. Future automatic T1 approval, if explicitly enabled, still requires a plan, durable job, audit and provenance checks; nothing in Stage 1 enables it.
 
-## Plans and previews
+## Plans, approval and execution
 
-Every plan contains:
+Before any target mutation, store an immutable plan with typed resolved parameters, target/instance identity, current facts/digests, preflight evidence, deterministic intent/preview, tier and rule reasons, ordered steps with retry classes, rollback limitations, provenance, creator, timestamp and canonical content hash. A failed preflight stores a refusal and cannot be approved.
 
-```
-Plan
-  id, hash (sha256 of canonical JSON of everything below), created_at, created_by (client id)
-  kind              e.g. "proxmox.zfs.create"
-  target            e.g. cluster "home", node "pve1"
-  intent            short human sentence, written by the harness from the parameters (not by the model)
-  parameters        validated, typed (pydantic) — exactly what will be executed
-  observed          facts captured at plan time that preflight re-checks (digests, serials, record ids)
-  preflight         list of checks: name, result (pass/warn/fail), evidence
-  preview           structured diff + rendered text: before → after, exact API calls / argv
-  risk              tier, reasons (which rules fired), floors applied
-  steps             ordered executor steps with their retry class (read | idempotent | unsafe)
-  rollback          what undoes this (or "irreversible"), and whether the harness can do it
-  provenance        which parameters were derived from target-sourced text (see S7)
-```
+The preview shows verifiable identities (VMID/name/node, disk serial, storage ID), before/after effects, exact API calls or argv and irreversible consequences. Model prose cannot substitute for it. An approval binds to exactly one hash, expires (T3 15 minutes and T2 60 minutes by default), and is atomically claimed once with execution creation. Reject mismatch, expiry, replay and concurrent duplicate claims, and audit them. An owner typing yes into chat is not an approval token or an LLM-classified approval.
 
-Rules:
-- Any failed preflight check means the plan is stored as `refused` with reasons and cannot be approved. A warning is shown prominently in the preview and in the ntfy message.
-- The `intent` and preview are rendered by deterministic code. The model's explanation may accompany them in the client, but the approval message shows only harness-rendered text, so the model cannot misdescribe what the owner is approving.
-- Previews name things the way the owner can verify them: disk model plus serial, not `/dev/sdb`; VMID plus name plus node; zone plus record name plus old and new value.
+Execute only through the approved plan's durable job. Re-preflight live state; drift cancels execution and needs a new plan. Persist external task identity before polling. Verify postconditions before success. An external effect with unknown outcome ends uncertain and is never blindly repeated, including recovery after a crash. A verification mismatch is not success. Every sub-step must be covered by the same resolved preview/approval; no hidden follow-on writes.
 
-## Approval flow
+One mutating job per target scope. Never clear Proxmox locks as a workaround. Use target concurrency controls (such as config digests) and identity checks; an execution engine's retry semantics do not make arbitrary target calls idempotent.
 
-```
-plan stored (T2/T3) → approval row "pending" (expires_at) → ntfy message:
-   title:  "T3 · Create ZFS pool 'tank2' on pve1"
-   body:   harness-rendered preview (truncated) + link to full preview (tailnet URL)
-   actions: [Approve]  [Reject]          (T3: [Approve] opens CLI/UI typed-confirm, no one-tap)
-owner acts → callback with single-use signed token → approval "approved" (who, channel, ts)
-job starts → claims approval in same DB transaction as job creation (SELECT … FOR UPDATE)
-```
+## Injection and provenance
 
-- The ntfy action URLs carry a single-use, short-lived token bound to `(plan_hash, decision)`. They are reachable only over the tailnet or through Access-protected endpoints.
-- Clients learn the result by polling `job.get` or reading the `job://` resource. The steering pack tells models to say "awaiting your approval" and never to claim success before the job reports its outcome.
-- Rejected and expired plans are kept for audit. Re-asking creates a new plan.
+Clearly label target-derived descriptions, names, tags, logs and stored observations as untrusted. The harness must not interpret them as instructions for actions, recipients, targets or permissions. An operator request can refer to a discovered entity only through typed, authorized reference resolution.
 
-## Provenance and prompt injection
+Track target-derived plan parameters where possible. Best-effort provenance matching is defense in depth, not proof of model intent. It cannot lower a tier, and it blocks automatic T1 approval for such plans. Owner approval, target ACLs and executor validation remain the real authorization boundaries. [Injection evals](testing-and-evals.md) must test actual runtime/model behavior, not just scripted transcripts.
 
-The harness can't stop a client model from reading malicious text. It controls what that text can cause:
-1. **Delimiting.** Tool results put target-sourced strings in fields named for what they are (`description`, `log_lines`, `note_body`). Each response carries `"untrusted": true` metadata. The steering pack teaches models to treat those fields as data.
-2. **No tool selection by content.** The harness never chooses a tool or action based on target-sourced text. Only clients call tools.
-3. **Provenance marking.** When a plan parameter equals or contains a string that the same session recently read from a target-sourced field, the planner marks it in `provenance`. Policy refuses T1 auto-approval for such plans, and the preview flags it. For example, a hostname copied from a log line must be confirmed by the owner. This is best effort and defense in depth. The real protection is that T2 and T3 always need the owner.
-4. **Evals.** The injection suite in [testing-and-evals.md](testing-and-evals.md) plants instructions in VM descriptions, notes, journal lines, compose labels and DNS TXT records. It asserts that no T2+ job runs and that T1 auto-approval doesn't fire.
+## Explicit exclusions
 
-## Concurrency and locking
-
-- One job at a time per target scope: per Proxmox node for node-level operations, per guest, per storage, per Docker host stack, per DNS zone. DBOS queues enforce this with concurrency keys.
-- The harness never clears a Proxmox `lock`. A locked guest causes a preflight failure, which reports the lock type.
-- Optimistic concurrency uses the target's own mechanisms where they exist: the Proxmox `digest`, the GitHub content SHA, and Cloudflare record IDs plus values.
-
-## What the harness will not do (v1)
-
-- Act on more than one cluster in a single plan.
-- Run any operation without a preview, even for the owner through the CLI. The CLI uses the same plan path.
-- Store or relay Claude or ChatGPT subscription credentials ([clients.md](clients.md)).
-- Execute model-written scripts. Typed operations come first, and a raw command is T3 with its exact argv shown.
+No cross-cluster plan, approval surface accessible to the model, unpreviewed mutation, subscription credential proxy or execution of unreviewed model-written scripts. Future extension drafting is separate from human-reviewed testing/installation; it cannot promote itself or bypass the same typed execution policy. [Secrets](secrets.md) defines the complementary binding protections.
