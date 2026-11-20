@@ -1,6 +1,6 @@
 # Testing, evaluations and owner acceptance
 
-> **Status: requirements only.** There is no executable suite in the active documentation checkpoint. Historical test counts belong to the preserved application. [Reliability](reliability.md) is a requirement ledger, not evidence that code exists.
+> **Status: requirements plus a scoped 1A fixture suite.** Actual runtime/model and guest acceptance are still pending; see [validation](../validation.md). Historical test counts belong to the preserved application. [Reliability](reliability.md) is a requirement ledger, not evidence that code exists.
 
 ## Three kinds of evidence
 

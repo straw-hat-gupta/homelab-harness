@@ -2,7 +2,7 @@
 
 ## Preserved source
 
-The complete implementation is retained remotely on [archive/pre-cli-restart-2026-11-20](https://github.com/straw-hat-gupta/homelab-harness/tree/archive/pre-cli-restart-2026-11-20), pinned at `a97f2aacd611f0a6b666f336fda57fad88c27080`. It includes source, tests, dependency locks, vault, UI, deployment/CI configuration and all previous specifications. The documentation-only branch does not duplicate or depend on it.
+The complete implementation is retained remotely on [archive/pre-cli-restart-2026-11-20](https://github.com/straw-hat-gupta/homelab-harness/tree/archive/pre-cli-restart-2026-11-20), pinned at `a97f2aacd611f0a6b666f336fda57fad88c27080`. It includes source, tests, dependency locks, vault, UI, deployment/CI configuration and all previous specifications. The restarted branch does not duplicate or depend on it.
 
 Inspect a file without restoring the application using `git show archive/pre-cli-restart-2026-11-20:<path>` after fetching that branch, or use the pinned GitHub tree. The earlier Django code remains at `v0-django-final` and must not be restored. Earlier own-loop review/planning proposals are not binding.
 
@@ -31,7 +31,7 @@ Record the decision in the implementation PR: requirement, candidate/source comm
 
 Preserving source is not adopting it. A reusable file lives only in the archive until a current requirement justifies it; do not add unused optional packages or a common/helpers library in anticipation.
 
-## Code-free boundary
+## Historical code-free reset
 
 The reset intentionally removes runtime source, tests, scripts, fixtures, dependency manifests/locks, deployment files, assets and executable workflows from the active tracked tree. Documents, legal notices and minimal Git metadata remain. Retirement is explicit and complete, with the snapshot preserved; it is not deletion of failing tests to manufacture green results.
 

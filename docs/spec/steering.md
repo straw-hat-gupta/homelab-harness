@@ -1,6 +1,6 @@
 # Operator instructions and context
 
-> **Status: binding target requirements; not implemented.** The managed runtime owns the loop. We supply supported instructions, facts and tools rather than a second agent framework or multi-vendor prompt-build platform.
+> **Status: binding target requirements; only the versioned 1A fixture instructions are supplied today.** The managed runtime owns the loop. We supply supported instructions, facts and tools rather than a second agent framework or multi-vendor prompt-build platform.
 
 ## Initial instruction contract
 

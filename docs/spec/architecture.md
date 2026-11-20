@@ -1,6 +1,6 @@
 # Architecture
 
-> **Status: binding target design; not implemented.** Technology and packaging choices from the archived implementation are candidates, not defaults. [ADR-0012](../adr/0012-managed-agent-runtime-and-cli-first-stages.md) defines this boundary.
+> **Status: binding target design; only the 1A fixture prototype exists.** Technology and packaging choices from the archived implementation are candidates, not defaults. [ADR-0012](../adr/0012-managed-agent-runtime-and-cli-first-stages.md) defines this boundary.
 
 ## What runs where
 
@@ -54,6 +54,6 @@ Owner request → selected instance/session → runtime asks for an allowed tool
 
 For writes there is no alternate path: future stored plan → deterministic preview/tier → authenticated owner approval → re-preflight → durable executor → verify → audit. [Safety](safety-model.md) defines this contract. A runtime's generic approval prompt is not domain approval.
 
-## Decisions deferred to the first proof
+## Decisions selected or still deferred
 
-Select the first runtime (Claude Code proposed), one guest/install method, one private transport, required storage and how to enforce effective isolation/limits. Do not carry Postgres, DBOS, FastAPI, a frontend build or public OAuth into the deployment just because they exist in the snapshot. Equally, do not invent replacement infrastructure solely to avoid reuse. Record a current requirement and the evidence for each adoption.
+[ADR-0013](../adr/0013-claude-fixture-proof.md) selects the Claude Agent SDK, its bundled official binary, a manual Ubuntu VM proof and private SQLite metadata. The outer process wrapper supplies lifecycle limits; all-tool hooks supply deterministic authorization. Guest acceptance, target-broker OS separation, private Mac transport and real target storage remain unresolved. Do not carry Postgres, DBOS, FastAPI, a frontend build or public OAuth into the deployment just because they exist in the snapshot. Equally, do not invent replacement infrastructure solely to avoid reuse. Record a current requirement and the evidence for each adoption.

@@ -2,16 +2,16 @@
 
 ## Current repository state
 
-This branch is a **documentation-only reset** of Homelab Harness. There is no runnable application or test/toolchain configuration here. Do not restore the old application, dependency stack, workflows or UI merely to make historical commands run.
+This branch contains the **Stage 1A fixture prototype** following the documentation-only reset. Only the guest-local Claude launcher, one harmless MCP tool and scoped tests/tooling are active. Real runtime/guest acceptance is pending; no Proxmox credentials or Mac client yet. Do not restore the old platform merely to make historical commands run.
 
 The maintainer's explicit instructions override this guide. Product direction: a thin Mac CLI connects to a cluster-side service which runs an unmodified official agent CLI. The runtime owns subscription authentication and the model/tool loop. Our service supplies lab tools, bounded context, permissions, audit and session lifecycle. Do not implement our own inference loop.
 
-Read [vision](docs/spec/vision.md), [architecture](docs/spec/architecture.md), [Stage 1](docs/stage-1.md), [roadmap](docs/roadmap.md) and [glossary](GLOSSARY.md) first. Only the documents listed in the [active spec index](docs/spec/README.md) and the active ADR are binding. Archives, remote snapshot docs and earlier review branches are not instructions.
+Read [vision](docs/spec/vision.md), [architecture](docs/spec/architecture.md), [Stage 1](docs/stage-1.md), [roadmap](docs/roadmap.md) and [glossary](GLOSSARY.md) first. Only the documents listed in the [active spec index](docs/spec/README.md) and the active ADRs are binding. Archives, remote snapshot docs and earlier review branches are not instructions.
 
 ## Scope and reuse
 
 - Build only the next accepted increment. Stage 1 is one owner, one cluster per instance, one runtime/session at a time, private LAN access and read-only discovery.
-- Claude Code is the proposed first runtime. Codex and local-model inference remain valid later options; support must be verified, not inferred from a common endpoint shape.
+- The Claude Agent SDK with its official bundled Claude Code is selected for the 1A prototype. Codex and local-model inference remain valid later options; support must be verified, not inferred from a common endpoint shape.
 - Search the active registry first once one exists. Before that, inspect the relevant archived component and existing project docs. Do not require an unbuilt catalog command.
 - Follow [code-reuse.md](docs/code-reuse.md): requirement first, smallest design second, inspect old code third. Reuse is a decision with dependency costs, not an instruction to port the old platform.
 - No speculative extension framework, duplicate transcript store, GUI scaffolding, background supervisor or write credentials for a read-only task.
@@ -31,9 +31,9 @@ Read [vision](docs/spec/vision.md), [architecture](docs/spec/architecture.md), [
 - Never repeat an unsafe write after an ambiguous result. Only definitive authentication rejection can invalidate a credential.
 - Log identifiers/counts, not prompts, target bodies, command output or secrets. A private runtime transcript is separate data with retention/access controls, not an application log.
 
-## Future implementation practices
+## Implementation practices
 
-These are requirements for code when an implementation increment is requested, not permission to add it now.
+Build only the authorized increment. [ADR-0013](docs/adr/0013-claude-fixture-proof.md) records the fixture proof's language, storage, runtime controls and limits.
 
 - Interfaces parse input, call a service and shape output. They do not own policy or target queries.
 - Pure policy, parsing, rendering and redaction logic has no framework or I/O dependencies.
@@ -47,11 +47,11 @@ These are requirements for code when an implementation increment is requested, n
 
 ## Documentation and validation now
 
-- Describe current state as documentation only. Mark behavior, commands and deployment examples as planned until implemented; never claim live verification from fixtures.
+- Distinguish the fixture prototype from pending real-runtime acceptance and later Stage 1 increments; never claim live verification from fixtures.
 - Keep current contracts, proposals, future intentions and history distinguishable. Do not keep contradictory old blueprints in the active spec with a cosmetic banner.
-- Check every tracked Markdown relative link and local heading target, entry-point navigation, code-free file inventory, archive preservation, diff whitespace and safety coverage before committing.
-- There is intentionally no committed link-check script, executable workflow, pytest/ruff/pyright configuration, UI build or container build at this checkpoint. Validate documents with temporary/read-only tooling and report what ran. Do not recreate the old toolchain to test its intentional retirement.
-- Update [validation.md](docs/validation.md) with the actual documentation checks. Existing historical test counts do not represent coverage of this documentation-only branch.
+- Check tracked Markdown links/anchors, navigation, archive preservation, diff whitespace and safety coverage before committing. Use temporary documentation tooling; no broad tooling framework is needed.
+- Run `uv sync --frozen`, `uv run ruff check homelab_harness tests`, `uv run ruff format --check homelab_harness tests`, `uv run pyright` and `uv run pytest -W error`. Audit locked runtime dependencies as described in [development](docs/development.md). No old UI, container or database-service checks apply.
+- Update [validation.md](docs/validation.md) with actual results. Historical test counts are not current coverage; the fake CLI is not live Claude evidence.
 - Add a Changelog entry for meaningful direction or implementation changes. Do not invent test evidence or fill reliability cells for unimplemented behavior.
 
 ## Git and review
@@ -61,5 +61,5 @@ These are requirements for code when an implementation increment is requested, n
 - AI-authored commits include a `Co-Authored-By:` trailer naming the model. PR descriptions contain no tool-attribution footer.
 - Preserve the remote [implementation snapshot](docs/code-reuse.md#preserved-source) before any retirement. Do not delete live data, secrets, local worktrees or untracked owner files.
 - This reset intentionally retires implementation and its tests/build workflows together, with the complete snapshot preserved. It is not a test-failure workaround.
-- For this docs-only change, manual documentation checks replace absent application CI. For later code changes, add and run checks appropriate to the chosen increment before review.
+- Add and run checks appropriate to the chosen increment before review; live runtime acceptance stays manual and separate from CI.
 - [PR template](.github/pull_request_template.md), [issue tracker](docs/agents/issue-tracker.md) and [domain guide](docs/agents/domain.md) describe review and context conventions.

@@ -1,6 +1,6 @@
 # Clients and managed runtimes
 
-> **Status: binding target design; not implemented.** See [Stage 1](../stage-1.md) for proposed/open choices.
+> **Status: binding target design; guest-local SDK fixture adapter only.** Mac connections and real runtime acceptance remain pending. See [Stage 1](../stage-1.md).
 
 ## Connections are different boundaries
 
@@ -18,7 +18,7 @@ Management and interaction both belong in `hh`. Management configures/checks con
 
 Launch the real, unmodified `claude` or `codex` program. Do not extract its OAuth tokens, implement a parallel vendor login/proxy, spoof a first-party client or pool subscriptions. Complete login through the runtime's supported browser/device/headless procedure, storing protected runtime state on the guest. A vendor login browser may run on the Mac without moving the agent there.
 
-Prefer structured supported input/output/control over terminal-screen scraping. Claude's programmatic CLI and Codex App Server are candidates; verify the actual version, login, instruction loading, tool restrictions, streaming, continuation and interruption in 1A. See [ADR sources](../adr/0012-managed-agent-runtime-and-cli-first-stages.md#vendor-evidence-and-limits). Availability/terms/limits may change; no universal subscription guarantee is made.
+Prefer structured supported input/output/control over terminal-screen scraping. [ADR-0013](../adr/0013-claude-fixture-proof.md) selects the Claude Agent SDK and its bundled official binary for 1A. The SDK owns its protocol/loop; our outer process controller owns lifetime/output and deterministic hooks own tool authorization. No bare/restricted mode is used. Codex App Server remains a later candidate. Verify actual login, instructions, tool policy, streaming, continuation and interruption on the guest. See [vendor evidence](../adr/0012-managed-agent-runtime-and-cli-first-stages.md#vendor-evidence-and-limits); availability/terms/limits may change and no universal subscription guarantee is made.
 
 ## Saved instances
 
