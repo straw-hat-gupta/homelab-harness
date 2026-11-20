@@ -63,6 +63,56 @@ jobs:
         run: |
           uv export --no-dev --all-packages --no-emit-workspace --no-hashes -o runtime-requirements.txt
           uvx pip-audit --strict -r runtime-requirements.txt
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26.13.0"
+      - run: npm install --global --no-fund --no-audit pnpm@12.16.1
+      # Only what ships in the image's UI bundle; high and critical fail the job.
+      - name: Known vulnerabilities in the UI's production dependencies
+        working-directory: ui
+        run: pnpm audit --prod --audit-level high
+
+  ui:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      # uv exports the OpenAPI document for the types check and serves the
+      # build for the Playwright smoke test.
+      - run: pip install "uv==${UV_VERSION}"
+      - run: uv sync
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26.13.0"
+      - run: npm install --global --no-fund --no-audit pnpm@12.16.1
+      - run: pnpm install --frozen-lockfile
+      - name: lint (eslint, prettier)
+        run: pnpm lint
+      - name: typecheck
+        run: pnpm typecheck
+      - name: vitest
+        run: pnpm test
+      - name: build
+        run: pnpm build
+      - name: Generated files are up to date (API types, route tree)
+        run: |
+          pnpm gen:api
+          git diff --exit-code -- src/api/schema.gen.ts src/routeTree.gen.ts
+      - name: Install Playwright's Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Playwright smoke (the harness serves the build; API from fixtures)
+        run: pnpm e2e
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: ui/test-results/
+          retention-days: 7
 
   docker:
     runs-on: ubuntu-latest

@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added (web UI foundation, UI-1)
+- `ui/`: a React 19 + Vite + strict TypeScript app with TanStack Router (file routes) and Query, Tailwind 4 and shadcn/ui, built with pnpm 12 on Node 26. An app shell (top bar with ⌘K search, side tree of datacenter → nodes → guests plus storage, object pages, light and dark themes).
+- Extension registries discovered with `import.meta.glob`, each with a Zod-validated `define*` helper: object types (`datacenter`, `node`, `qemu`, `lxc`, `storage`), object tabs (`summary`, `tasks` as a placeholder), actions (the type only; none shipped), and widget templates (`stat`, `table`, `status-list`, `markdown`, `log-tail`). The command palette is derived from them. Guide: `ui/README.md`.
+- An **interim** owner-only read façade for the UI: `GET /api/ui/tree` and `GET /api/ui/objects/{type}/{id}/summary`. It calls the Proxmox read tools through capability discovery, returns owner-safe errors, and writes one `ui.read` audit event per request (fail closed). The Stage 2 lab state replaces it. Mocked against Proxmox; not verified against a live cluster.
+- `HH_UI_DIR`: the harness serves the UI build at `/` with an SPA fallback that never shadows `/api`, `/mcp`, `/healthz`, `/readyz`, `/docs`, `/.well-known`, `/oauth` or `/owner`, immutable caching for hashed assets, `no-cache` for `index.html`, and a Content-Security-Policy with same-origin scripts only. The image builds the UI in a Node stage and sets `HH_UI_DIR`.
+- UI API types are generated from the app's OpenAPI document (`pnpm gen:api`, `scripts/export_openapi.py`). CI gains a `ui` job (lint, typecheck, Vitest, build, generated files up to date, Playwright smoke) and `pnpm audit --prod`; Dependabot watches `/ui`.
+
 ### Added (Stage 1 trial)
 - `docs/getting-started.md`, a step-by-step guide to running Stage 1 against a real cluster: Proxmox identity script, TLS pin, Compose stack, vault KEK, owner passkey, vault-held Proxmox token, targets file, OAuth login from Claude Code and Codex, and what to check.
 - `deploy/compose.yaml` mounts a gitignored `deploy/config/` read-only at `/etc/harness`, and passes `HH_SECRETS_KEK_PROVIDER`, `HH_SECRETS_KEK_FILE` and `HH_TARGETS_FILE` through. Each is off when unset.
