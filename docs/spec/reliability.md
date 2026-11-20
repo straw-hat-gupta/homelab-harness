@@ -59,6 +59,7 @@ A requirement becomes applicable when its behavior is enabled. Deferral does not
 | R-51 | Reconnect and restart preserve native history/session mapping, mark interrupted runs and never silently replay lost requests. | Stage 1 | Not implemented |
 | R-52 | Owner-managed notes, deterministic observations, native transcripts, secrets and audit have separate writers, authority, freshness and retention. | Stage 1 | Not implemented |
 | R-53 | Actual model/runtime fixture evaluations and explicit owner-lab acceptance gate each increment; scripted transcripts and historical test counts are insufficient. | Stage 1 | Not implemented |
+| R-54 | Hosting-node loss recovers the harness VM on an eligible surviving node; planned migration, persistent state, stable identity/client reconnection, exclusive execution and no replay of uncertain actions are verified against defined recovery-time/state-loss objectives. | Required later host-availability stage; excluded from Stage 1 | Not implemented |
 
 ## Safety coverage
 
