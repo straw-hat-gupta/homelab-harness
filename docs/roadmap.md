@@ -18,9 +18,11 @@ The spec is in [`docs/spec/`](spec/README.md), the decisions are in [`docs/adr/`
 | Proxmox read-only adapter, TLS pinning, bootstrap script (#24) | ✅ |
 | Vault crypto: envelope encryption, KEK providers, secret kinds (#22) | ✅ |
 | Observability: OTel, plus Prometheus, Tempo, Loki and Grafana (#23) | ✅ |
-| MCP server with Proxmox read tools, interim owner tokens, audit per call, contract kit | in progress |
+| MCP server with 18 Proxmox read tools, separate MCP/owner tokens, audit per call, contract kit (#26) | ✅ code; live client verification pending |
 | Vault persistence and the `hh secret` and `hh vault` CLI (#28) | ✅ |
-| Owner OAuth: embedded authorization server, passkey login, `hh clients` ([ADR-0007](adr/0007-owner-auth.md)) | in review (live client logins unverified; CLI device flow is a follow-up) |
+| Owner OAuth: embedded authorization server, passkey login, `hh clients` (#30, [ADR-0007](adr/0007-owner-auth.md)) | ✅ code; live passkey/client verification pending; CLI device flow is a follow-up |
+
+The UI-1 foundation is also implemented: a read-only navigator, Summary pages, search, themes and reusable widgets. It uses live read tools until Stage 2 provides lab state; Tasks is a placeholder, not populated task history. See [project-status.md](project-status.md) and [getting-started.md](getting-started.md) for the first verification pass. `hh doctor` and `hh init` are not implemented yet; the manual checks remain necessary.
 
 **Done when:**
 - Claude Code and Codex connect over the tailnet and answer read questions about the cluster.
@@ -51,6 +53,7 @@ Daily value: open the harness UI instead of the Proxmox UI to look at the lab. A
 - Profile inference tests across lab shapes.
 
 **UI-1 and UI-2** ([ui.md](spec/ui.md))
+- ✅ UI-1 foundation: the shell, the registries, the side tree, Summary and Tasks tabs, five templates, ⌘K, an interim read façade over the Proxmox tools, serving and CI.
 - **Shell:** the app shell with its registries (objects, tabs, routes, templates); the side tree; object pages for Summary, Tasks and Logs; search; SSE; passkey login.
 - **Widgets:** the widget templates, the home dashboard and top-bar widgets, and `ui.layout.plan_update`.
 

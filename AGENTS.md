@@ -26,6 +26,8 @@ uv run hh health                          # CLI against a running harness
 docker compose -f deploy/compose.yaml up -d --build
 python scripts/check_links.py             # docs links
 uv add --package homelab-harness <dep>    # add a dependency to one package
+cd ui && pnpm install --frozen-lockfile   # web UI (Node 26, pnpm 12): then lint, typecheck, test, build, e2e
+cd ui && pnpm gen:api                     # regenerate UI API types after changing a route or response model
 ```
 
 ## Layout
@@ -35,6 +37,7 @@ packages/core/   homelab_harness       control plane (FastAPI app, settings, log
 packages/sdk/    homelab_harness_sdk   capability contract: errors, tiers, retry classes
 cli/             homelab_harness_cli   `hh`, a thin REST client with no business logic
 capabilities/    (Stage 1+)            proxmox, linux, docker, cloudflare, obsidian
+ui/              React web UI          registries: objects/, tabs/, actions/, templates/ (ui/README.md)
 deploy/          compose and observability config
 docs/            spec, ADRs, roadmap, archive
 ```
@@ -134,6 +137,7 @@ The harness exists to make agents cheap and predictable. Bloat defeats that.
 2. `uv run pyright` reports 0 errors.
 3. `uv run pytest` passes (quote the count).
 4. If you touched the Dockerfile or deploy files: the image builds and `/healthz` answers.
+   If you touched `ui/`: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` and `pnpm e2e` pass.
 5. Docs, `CHANGELOG.md`, and the `reliability.md` Test cells are updated where relevant. `python scripts/check_links.py` is clean.
 6. Report results faithfully. If something failed or was skipped, say so with the output.
 

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/straw-hat-gupta/homelab-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/straw-hat-gupta/homelab-harness/actions/workflows/ci.yml)
 
-> **Status: Stage 1 in progress.** Merged so far: the service skeleton, Postgres with DBOS and an append-only audit log, the read-only Proxmox adapter with TLS pinning, the vault's crypto core, and OpenTelemetry with a Grafana stack. The MCP server is next. The order is set by the [roadmap](docs/roadmap.md).
+> **Status: Stage 1 built, live verification pending.** The service, CLI, Postgres/DBOS foundation, append-only audit log, encrypted vault, 18 read-only Proxmox MCP tools, owner passkey/OAuth login, and read-only web UI foundation are implemented. Plans, approvals and target changes are later stages. See the [current functionality and vision](docs/project-status.md), [testing walkthrough](docs/getting-started.md), and [roadmap](docs/roadmap.md).
 
 **An AI-native control plane and UI for Proxmox home labs.** Your Claude or ChatGPT can already run commands on your nodes. The harness lets it do the same work **with a fraction of the tokens and no guessing**:
 - **Lab state, not discovery.** Code keeps a typed, always-current model of the lab and renders compact `lab://` documents. Agents read one page instead of running twenty commands.
@@ -15,6 +15,7 @@
 
 | Start here | |
 |---|---|
+| [Project status](docs/project-status.md) | What exists, its limits, what to test, and the intended end state |
 | [Vision](docs/spec/vision.md) | What it is, its principles and non-goals |
 | [Architecture](docs/spec/architecture.md) | **System diagram of what runs where**, then components, code layout, and the plan, approve, apply flow |
 | [Safety model](docs/spec/safety-model.md) | Invariants, risk tiers, previews, approvals |

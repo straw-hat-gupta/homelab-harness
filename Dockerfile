@@ -1,6 +1,17 @@
 # syntax=docker/dockerfile:1
-# Two stages: resolve and install the locked dependencies with uv, then copy only
-# the virtualenv into a slim runtime image that runs as an unprivileged user.
+# Three stages: build the web UI with Node, resolve and install the locked Python
+# dependencies with uv, then copy only the virtualenv and the UI's static build
+# into a slim runtime image that runs as an unprivileged user.
+
+# Node 26 is the active LTS line; the image carries none of it, only ui/dist.
+FROM node:26.13.0-trixie-slim AS ui
+RUN npm install --global --no-fund --no-audit pnpm@12.16.1
+WORKDIR /ui
+COPY ui/package.json ui/pnpm-lock.yaml ./
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+COPY ui/ ./
+RUN pnpm build
 
 FROM python:3.13-slim AS build
 # uv is pinned; installed from PyPI so the build needs no extra registry.
@@ -32,6 +43,7 @@ FROM python:3.13-slim AS runtime
 RUN groupadd --system --gid 10001 harness \
     && useradd --system --uid 10001 --gid harness --no-create-home harness
 COPY --from=build /opt/venv /opt/venv
+COPY --from=ui /ui/dist /opt/harness/ui
 # OTEL_SEMCONV_STABILITY_OPT_IN: emit the stable HTTP semantic conventions
 # (http.server.request.duration in seconds) that the Grafana dashboards query,
 # instead of the deprecated names the instrumentation still defaults to.
@@ -39,7 +51,8 @@ ENV PATH="/opt/venv/bin:$PATH" \
     OTEL_SEMCONV_STABILITY_OPT_IN=http \
     PYTHONUNBUFFERED=1 \
     HH_HOST=0.0.0.0 \
-    HH_PORT=8080
+    HH_PORT=8080 \
+    HH_UI_DIR=/opt/harness/ui
 USER harness
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
