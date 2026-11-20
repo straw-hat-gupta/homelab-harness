@@ -1,5 +1,7 @@
 # Origins
 
+> **Historical provenance.** The active branch is now documentation only. The implementation described below is preserved on `archive/pre-cli-restart-2026-11-20` at `a97f2aa`; it is reference material, not automatically adopted code. See [code-reuse policy](docs/code-reuse.md).
+
 ## Where this code came from
 
 `agentic-assistant` started as the backend of **Aiva**, an AI personal-assistant startup idea built by a small team between late 2024 and mid-2026. The product never launched. The team included an iOS frontend that is not part of this repository.

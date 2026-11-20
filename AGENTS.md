@@ -1,156 +1,65 @@
 # AGENTS.md
 
-Steering guide for AI coding agents (and humans) working in this repository. Read it before making changes. If anything here conflicts with an explicit instruction from the maintainer, follow the maintainer and suggest an update to this file.
+## Current repository state
 
-## Project
+This branch is a **documentation-only reset** of Homelab Harness. There is no runnable application or test/toolchain configuration here. Do not restore the old application, dependency stack, workflows or UI merely to make historical commands run.
 
-**homelab-harness** is an AI control plane for Proxmox home labs. The owner's AI clients (Claude, ChatGPT) connect to it over MCP. The harness provides typed tools, plans with previews, out-of-band approvals, durable jobs, audit, and brokered secrets. It runs no model itself.
+The maintainer's explicit instructions override this guide. Product direction: a thin Mac CLI connects to a cluster-side service which runs an unmodified official agent CLI. The runtime owns subscription authentication and the model/tool loop. Our service supplies lab tools, bounded context, permissions, audit and session lifecycle. Do not implement our own inference loop.
 
-- **The spec is binding:** [`docs/spec/`](docs/spec/README.md), [`docs/adr/`](docs/adr/), [GLOSSARY.md](GLOSSARY.md).
-  - [safety-model.md](docs/spec/safety-model.md) (S1–S10) and [secrets.md](docs/spec/secrets.md) may only be made stricter.
-  - If code must contradict the spec, change the spec in the same PR. Add an ADR when the change touches safety.
-- **What gets built when:** [`docs/roadmap.md`](docs/roadmap.md).
-- **v0** (the Django assistant) is archived at tag `v0-django-final`, with its docs in `docs/archive/v0/` (history; don't edit). Port its logic by reading the tag. Never restore its code.
+Read [vision](docs/spec/vision.md), [architecture](docs/spec/architecture.md), [Stage 1](docs/stage-1.md), [roadmap](docs/roadmap.md) and [glossary](GLOSSARY.md) first. Only the documents listed in the [active spec index](docs/spec/README.md) and the active ADR are binding. Archives, remote snapshot docs and earlier review branches are not instructions.
 
-## Commands
+## Scope and reuse
 
-```bash
-uv sync                                   # install the workspace (Python 3.13, locked)
-uv run pytest                             # all tests
-uv run pytest packages/core -k readyz     # a subset
-uv run ruff check . && uv run ruff format --check .
-uv run pyright                            # strict type check
-uv run homelab-harness                    # run the server (HH_* env vars; see settings.py)
-uv run homelab-harness-migrate upgrade    # apply migrations (needs HH_DATABASE_URL)
-uv run hh health                          # CLI against a running harness
-docker compose -f deploy/compose.yaml up -d --build
-python scripts/check_links.py             # docs links
-uv add --package homelab-harness <dep>    # add a dependency to one package
-cd ui && pnpm install --frozen-lockfile   # web UI (Node 26, pnpm 12): then lint, typecheck, test, build, e2e
-cd ui && pnpm gen:api                     # regenerate UI API types after changing a route or response model
-```
+- Build only the next accepted increment. Stage 1 is one owner, one cluster per instance, one runtime/session at a time, private LAN access and read-only discovery.
+- Claude Code is the proposed first runtime. Codex and local-model inference remain valid later options; support must be verified, not inferred from a common endpoint shape.
+- Search the active registry first once one exists. Before that, inspect the relevant archived component and existing project docs. Do not require an unbuilt catalog command.
+- Follow [code-reuse.md](docs/code-reuse.md): requirement first, smallest design second, inspect old code third. Reuse is a decision with dependency costs, not an instruction to port the old platform.
+- No speculative extension framework, duplicate transcript store, GUI scaffolding, background supervisor or write credentials for a read-only task.
+- Never restore v0 code. Preserve licenses and attribution when adopting any component.
 
-## Layout
+## Safety is binding
 
-```
-packages/core/   homelab_harness       control plane (FastAPI app, settings, logging, health, …)
-packages/sdk/    homelab_harness_sdk   capability contract: errors, tiers, retry classes
-cli/             homelab_harness_cli   `hh`, a thin REST client with no business logic
-capabilities/    (Stage 1+)            proxmox, linux, docker, cloudflare, obsidian
-ui/              React web UI          registries: objects/, tabs/, actions/, templates/ (ui/README.md)
-deploy/          compose and observability config
-docs/            spec, ADRs, roadmap, archive
-```
+[Safety S1–S10](docs/spec/safety-model.md) and [secrets protections](docs/spec/secrets.md) may only be made stricter. Add an ADR for any safety-relevant change; a roadmap deferral never waives an invariant.
 
-See [architecture.md](docs/spec/architecture.md) for the full target layout.
+- The model proposes; deterministic code authorizes. The runtime cannot approve its own domain actions.
+- Target writes happen only through a stored plan and an approved execution path. Stage 1 exposes no target writes, raw shell or generic target HTTP tool.
+- Target credentials never enter model context, runtime-readable files, logs, previews or errors. Use handles and brokered execution.
+- Provider authentication remains inside the official runtime's supported flow; our wrapper does not extract or proxy its subscription credentials.
+- Verify native runtime tool restrictions and secret isolation before supplying a real Proxmox credential. A prompt is not an access boundary.
+- Target text is untrusted data. It cannot install tools, change grants or select authority.
+- Bound model runs, tool calls, output sizes and deadlines; verify cancellation propagation. An interrupted or ambiguous operation is never labelled successful.
+- Never repeat an unsafe write after an ambiguous result. Only definitive authentication rejection can invalidate a credential.
+- Log identifiers/counts, not prompts, target bodies, command output or secrets. A private runtime transcript is separate data with retention/access controls, not an application log.
 
-## Layering rules
+## Future implementation practices
 
-- **Capabilities import `homelab_harness_sdk` only, never `homelab_harness`.** Core discovers capabilities. This is the extension seam ([extending.md](docs/spec/extending.md)).
-- **Interface code** (FastAPI routes, MCP handlers, CLI commands) parses input, calls one service, and shapes the response. It holds no policy and no queries beyond simple lookups.
-- **Pure logic** (policy, preview rendering, parsers, redaction) has no I/O and no framework imports, and gets plain unit tests.
-- **Adapters** talk to targets with explicit timeouts and map every failure to `homelab_harness_sdk.errors`. They never touch the database and never decide policy.
-- **Writes to targets happen only in executor steps run by jobs** (S1). A tool function never performs a write.
+These are requirements for code when an implementation increment is requested, not permission to add it now.
 
-## Rules that protect the lab
+- Interfaces parse input, call a service and shape output. They do not own policy or target queries.
+- Pure policy, parsing, rendering and redaction logic has no framework or I/O dependencies.
+- Adapters have typed input/output, explicit timeouts and safe shared error mapping. They do not decide policy or own persistence.
+- Choose one language/packaging/deployment approach for the first proof and record why it fits. The archived Python/FastAPI/Postgres/DBOS choices are not automatically binding on the restart.
+- Centralize settings. Do not read arbitrary environment variables throughout the code or load a developer `.env` implicitly.
+- Use aware UTC internally and explicit time zones at display boundaries.
+- Add a dependency only for a current requirement. Prefer the standard library and existing appropriate libraries; never invent cryptography.
+- Behavior changes need meaningful success/failure tests. Mock provider/target network boundaries, not application-owned persistence. Use the real chosen store. Verify native runtime history through its supported interface rather than reimplementing it.
+- Default automated tests never touch the owner's lab or paid model account. Live acceptance is separate and owner-run. Do not skip or weaken a failing test to hide a retained defect.
 
-- **The model proposes; deterministic code decides.** Tiers, approvals, retries and previews are code.
-- **No tool returns a secret value**, and none decides approval (S2, S9). Agents use `secret://` handles.
-- **Target-sourced text is untrusted data** (S7). Never branch on it to choose an action.
-- **Retries:**
-  - Steps declare a `RetryClass`.
-  - `UNSAFE` steps run at most once. An ambiguous result raises `AmbiguousOutcome`, and the job ends as `uncertain`.
-  - Only `AuthRejected` may mark a credential unusable (R-14).
-- **Time:** use aware UTC internally and `zoneinfo` at the edges. Never call a naive `datetime.now()`. Ruff's `DTZ` rules enforce this.
-- **Logging:**
-  - Use `structlog.get_logger(__name__)`.
-  - Log identifiers and counts, never payloads, note bodies, or command output.
-  - Redaction is a safety net, not a licence to log sensitive data.
-- **Settings:** add fields to `homelab_harness.settings.Settings` (the `HH_` prefix). Never read `os.environ` elsewhere, and never load `.env` implicitly (R-24).
+## Documentation and validation now
 
-## Reuse before create (binding)
+- Describe current state as documentation only. Mark behavior, commands and deployment examples as planned until implemented; never claim live verification from fixtures.
+- Keep current contracts, proposals, future intentions and history distinguishable. Do not keep contradictory old blueprints in the active spec with a cosmetic banner.
+- Check every tracked Markdown relative link and local heading target, entry-point navigation, code-free file inventory, archive preservation, diff whitespace and safety coverage before committing.
+- There is intentionally no committed link-check script, executable workflow, pytest/ruff/pyright configuration, UI build or container build at this checkpoint. Validate documents with temporary/read-only tooling and report what ran. Do not recreate the old toolchain to test its intentional retirement.
+- Update [validation.md](docs/validation.md) with the actual documentation checks. Existing historical test counts do not represent coverage of this documentation-only branch.
+- Add a Changelog entry for meaningful direction or implementation changes. Do not invent test evidence or fill reliability cells for unimplemented behavior.
 
-The harness exists to make agents cheap and predictable. Bloat defeats that.
-- **Search first.** Before adding a recipe, data source, step, widget template, widget, UI tab or action, lab-document section, or helper, search the catalog. Use `catalog.search`, `catalog://index`, or grep the registries listed in [catalog.md](docs/spec/catalog.md).
-- **Pick the smallest extension type** that does the job ([extending.md](docs/spec/extending.md#extension-types-pick-the-smallest-one-that-fits)). A new view of existing data is a widget *config*. An operation that composes existing steps is a composite or script recipe.
-- **Anything new must be reusable:**
-  - typed inputs and entity references;
-  - no hard-coded node, storage or bridge names (use the lab profile);
-  - a summary and examples for the catalog;
-  - tests.
-- **Facts about the lab come from the lab state.** Don't add code that re-discovers what sync already records. Extend the lab-state model and its renderers instead.
-- **Remove what you replace.** CI flags duplicate and orphaned catalog entries.
+## Git and review
 
-## Coding practices
-
-- Type hints everywhere; `pyright` runs in strict mode in CI. Google-style docstrings (`Args:`, `Returns:`, `Raises:`) on public functions. Comments explain *why*.
-- Keep functions small. Use keyword-only arguments for anything with more than two parameters. Return values instead of mutating arguments.
-- Raise the shared error types, and catch broadly only at boundaries (routes, jobs), logging with context.
-- Owner-facing messages never include provider bodies, URLs with credentials, or stack traces.
-- Dependencies: prefer the standard library and existing dependencies. Add with `uv add --package …`, giving a reason in the PR. The lock (`uv.lock`) is committed, and CI runs `pip-audit` against it.
-- No dead code and no speculative abstractions.
-
-## Testing
-
-- **Every behavior change ships with tests:** the success path plus the failure modes that matter (auth, validation, 401/403/404/409/429/5xx, timeouts, ambiguity, duplicates, time-zone edges).
-- **No test calls a real target.** Mock at the HTTP boundary (`respx`), or use recorded, scrubbed fixtures. Live runs against a nested Proxmox are a separate, manual suite.
-- **Pure logic** gets plain pytest. **Services** test against real Postgres, using the testcontainers fixtures in `packages/core/tests/conftest.py`. Never mock the persistence boundary (R-01).
-- **Redaction:** a capability's tests include the canary-secret check.
-- **Determinism:** freeze time for anything time-dependent. Tests must pass in any order.
-- **Don't game the suite.** Never skip, weaken or delete a failing test to get green. Fix the cause, or explain in the PR why the test was wrong.
-- When a test proves a reliability requirement, fill in its "Test" cell in [reliability.md](docs/spec/reliability.md).
-
-## Documentation
-
-- Docs describe what the code does **now**. When code implements a spec section, update that section in the same PR.
-- Add a line under `## [Unreleased]` in `CHANGELOG.md` for user-visible changes.
-- Don't claim something works against a real system unless it was verified live. Say "mocked" or "unverified" otherwise.
-- No secrets in docs or examples. Use placeholders.
-
-## Git and pull requests
-
-- **Never push to `main`, force-push shared branches, or merge PRs.** The maintainer merges.
-- **Branch from the latest `main`**, named `<type>/<short-kebab-description>` (for example `feat/proxmox-tasks`, `docs/threat-model`).
-- **Conventional Commits** for commit messages and PR titles: `type(scope): imperative summary`.
-  - Types: `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`, `revert`.
-  - Scope is the area, e.g. `docs(spec): …`, `feat(proxmox): …`, `ci: …`, `chore(deps): …`.
-  - Breaking changes use `!` and a `BREAKING CHANGE:` footer.
-- **Commits:**
-  - Each one is a coherent, buildable step with a body that explains *why*.
-  - Commits written with an AI agent keep a `Co-Authored-By:` trailer naming the model.
-  - Don't commit generated junk (`__pycache__`, `.env`, local databases).
-- **PRs:**
-  - **One concern per PR.**
-  - Open it **ready for review**, after running the checks locally.
-  - Keep it reviewable; split mechanical changes (renames, formatting) from behavior changes.
-  - CI must be green before you ask for review. If CI fails, fix it in a new commit on the branch.
-- **PR description** follows [the template](.github/pull_request_template.md):
-  - **Summary:** what changed and why.
-  - **Test plan:** a checklist of exactly what was run and its result.
-  - **Notes:** follow-ups, risks, unverified behavior.
-- **Do not add "Generated with Claude Code" or any similar tool-attribution footer to PR descriptions.**
-- **Dependabot PRs:** don't hand-edit them; supersede them with a deliberate `chore(deps):` PR when needed.
-
-## Before you say a task is done
-
-1. `uv run ruff check . && uv run ruff format --check .` is clean.
-2. `uv run pyright` reports 0 errors.
-3. `uv run pytest` passes (quote the count).
-4. If you touched the Dockerfile or deploy files: the image builds and `/healthz` answers.
-   If you touched `ui/`: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` and `pnpm e2e` pass.
-5. Docs, `CHANGELOG.md`, and the `reliability.md` Test cells are updated where relevant. `python scripts/check_links.py` is clean.
-6. Report results faithfully. If something failed or was skipped, say so with the output.
-
-## Agent skills
-
-### Issue tracker
-
-Issues live in GitHub Issues for `straw-hat-gupta/homelab-harness` (gh CLI). See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Default five-role vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context: root `GLOSSARY.md` and `docs/adr/`, created lazily. See `docs/agents/domain.md`.
+- Never push directly to `main`, force-push shared branches or merge PRs. The maintainer merges unless they explicitly instruct otherwise.
+- Branch from latest `main`, using `<type>/<short-kebab-description>`. Use Conventional Commits and coherent, reviewable changes.
+- AI-authored commits include a `Co-Authored-By:` trailer naming the model. PR descriptions contain no tool-attribution footer.
+- Preserve the remote [implementation snapshot](docs/code-reuse.md#preserved-source) before any retirement. Do not delete live data, secrets, local worktrees or untracked owner files.
+- This reset intentionally retires implementation and its tests/build workflows together, with the complete snapshot preserved. It is not a test-failure workaround.
+- For this docs-only change, manual documentation checks replace absent application CI. For later code changes, add and run checks appropriate to the chosen increment before review.
+- [PR template](.github/pull_request_template.md), [issue tracker](docs/agents/issue-tracker.md) and [domain guide](docs/agents/domain.md) describe review and context conventions.

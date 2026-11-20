@@ -1,49 +1,43 @@
 # Glossary
 
-The project's vocabulary. Use these terms, in this sense, in code, docs, issues and tests. When a concept you need is missing, add it here in the same PR.
+Terms used by the active design. Historical documents may use older meanings.
 
-| Term | Meaning | Avoid |
-|---|---|---|
-| **Harness** | The whole system: the control plane, the MCP server, the steering pack and the interfaces. | "agent", "bot" |
-| **Control plane** | The Python service that owns inventory, plans, approvals, jobs, audit, credentials and policy. | "backend", "server" (too vague) |
-| **Client** | An AI application connected to the harness over MCP: claude.ai, Claude Desktop, Claude Code, ChatGPT, Codex. The client runs the model; the harness runs no model. | "LLM" when you mean the app |
-| **Owner** | The single human who operates the harness and approves plans. | "user" (ambiguous with Proxmox users) |
-| **Capability** | A package that adds a domain to the harness, such as `proxmox`, `cloudflare`, `docker`, `linux` or `obsidian`. It contributes a typed adapter, read tools, planners, executors, resources, steering and contract tests. | "plugin", "integration" |
-| **Adapter** | The part of a capability that talks to an external system: typed calls, timeouts, and error mapping to shared exceptions. It holds no policy. | "client wrapper" |
-| **Target** | A system the harness manages: a Proxmox cluster or node, a Linux host, a Docker host, a Cloudflare account, a vault repo. | "remote", "host" (unless it is a Linux host) |
-| **Lab state** | The typed model of the whole lab, kept by deterministic sync code. Every row carries `as_of` and `source`. Agents and the UI read it instead of doing discovery. The live target is still authoritative at plan and apply time. See [lab-state.md](docs/spec/lab-state.md). | "inventory" (older term), "cache" |
-| **Lab document** | A deterministic, token-budgeted rendering of the lab state (`lab://overview`, `lab://nodes/pve1`, …) | "report", "summary" |
-| **Lab profile** | The owner's conventions (default storage, bridge, VMID range, templates, annotations), inferred during onboarding and used for recipe defaults | "config" |
-| **Adoption** | Connecting the harness to an existing lab read-only, without changing the lab's own configuration (`hh init`) | "install", "migration" |
-| **Recipe** | A named, versioned, tested, typed operation that produces a plan. Recipes are the plan tools. See [recipes.md](docs/spec/recipes.md). | "script" (unless it is a script recipe), "playbook" |
-| **Script recipe** | A recipe defined in YAML as argv templates with typed placeholders, preflight and verify steps | "shell script" |
-| **Step** | A low-level executor unit shared by recipes, with a retry class | "task" |
-| **Data source** | A typed, scoped, read-only query exposed to the UI, MCP and the CLI. See [catalog.md](docs/spec/catalog.md). | "endpoint", "API" |
-| **Widget template** | A generic UI component that renders a data *shape* (`stat`, `table`, `status-list`, …) | "widget" |
-| **Widget** | A config combining a template, a data source, parameters and options. It is not code. | "component" |
-| **Catalog** | The searchable index of data sources, recipes, steps, templates, docs and UI extensions. Check it before creating anything. | "registry" (that word is for the UI's code-level registries) |
-| **Failure class** | The deterministic attribution of a failed job: `agent.*`, `recipe.bug`, `target.error` or `uncertain` | "blame" |
-| **Read tool** | An MCP tool with no side effects. It runs immediately. | — |
-| **Plan** | An immutable, typed proposal for one change. It contains the intent, the target, preflight results, a preview (diff), a risk tier, the steps, a rollback note and a content hash. Created by a `*.plan_*` tool. | "action", "proposal" |
-| **Preview** | The human-readable part of a plan: what changes, before and after, and the exact commands or API calls. | "summary" |
-| **Preflight** | Deterministic checks run when the plan is created and again at apply time, for example "disk has no partitions" or "config digest unchanged". | "validation" (too generic) |
-| **Risk tier** | T0 read, T1 reversible and in scope, T2 recoverable change, T3 destructive or lockout risk. Assigned by policy, never by the model. See [safety-model.md](docs/spec/safety-model.md). | "severity" |
-| **Policy** | Deterministic rules mapping a plan to a risk tier and an approval requirement. Defined in versioned config with code-level floors that config cannot lower. | — |
-| **Approval** | The owner's out-of-band decision on one plan hash: approve, reject or expired. It is claimed exactly once. | "confirmation" |
-| **Apply** | Executing an approved plan as a durable job. | "run", "execute" (in user-facing text) |
-| **Job** | A durable (DBOS) workflow that applies a plan. It records steps, external task IDs (UPIDs), outcome and verification. | "task" (reserved for owner to-dos) |
-| **UPID** | Proxmox's unique task identifier, returned by asynchronous API calls. Jobs persist and poll it. | — |
-| **Outcome** | The terminal result of a job: `succeeded`, `failed` (definitely did not take effect), `uncertain` (may have taken effect; needs a human), `rolled_back`, `cancelled`. | — |
-| **Verification** | The read performed after apply, confirming the target reached the planned state. | — |
-| **Agent pool** | A Proxmox resource pool that holds guests created by the harness. Scoped tokens act only inside it. | — |
-| **Secret** | A credential held in the harness vault (an SSH key, password, token, file or key/value bundle), encrypted at rest and referenced by handle. See [secrets.md](docs/spec/secrets.md). | "key" (ambiguous with encryption keys) |
-| **Handle** | A secret's reference, `secret://<name>`. This is all an agent ever sees. | "secret ID" |
-| **Grant** | The owner's permission for one client to use one secret in one mode, within a scope, with an approval rule and an expiry. | "permission", "share" |
-| **Use mode** | How a granted secret is used: `broker`, `ssh-sign`, `http-inject`, `file-mount`, `env` (exposing), or `reveal` (owner only). | — |
-| **KEK / DEK** | The key-encryption key (held outside the DB) and the per-secret data-encryption key it wraps. | "master key" |
-| **Capability token** | A privilege-separated Proxmox API token, or a scoped token for another system, held for one capability and risk level. | "API key" |
-| **Steering pack** | Versioned prompts, skills and runbooks that shape how clients behave. Distributed as Agent Skills, MCP prompts and resources, and AGENTS.md. | "system prompt" (only one part of it) |
-| **Runbook** | A steering document for one kind of work. It follows the order trigger, read-only diagnostics, hypotheses, plan, verify, rollback. | "playbook" (that word is Ansible's) |
-| **Task** | An owner to-do item, stored as an Obsidian Tasks line in the vault repo. | using it for Proxmox tasks (say UPID or job) |
-| **Event** | Something reported by a target, such as a Proxmox notification webhook or a failed backup, and ingested by the control plane. | "alert" (an alert is an event the policy chooses to notify on) |
-| **Usage** | Token, cost and rate-limit consumption reported by connected clients through their telemetry. | "billing" |
+| Term | Meaning |
+|---|---|
+| Harness | The whole Homelab Harness product around managed agent runtimes: connections, workspace, context, tools, policy and later supervision. |
+| Harness instance | One cluster-side service installation managing one Proxmox cluster. Saved Mac connections select instances, not arbitrary target endpoints. |
+| Service guest | The dedicated VM/container hosting the instance and its persistent workspace. |
+| Client | Our thin Mac CLI, or a future GUI, connecting to an instance. It does not run the agent or hold authoritative lab memory. |
+| Runtime | The real, unmodified `claude` or `codex` program. It owns model/tool iteration, provider authentication and native conversation history/compaction. |
+| Model | Inference producing answers and proposed tool calls. A raw model endpoint is not a complete runtime. |
+| Provider | Where inference is served: vendor cloud, local model server or a VPS endpoint. Runtime/provider compatibility must be tested. |
+| Agent | A runtime session configured with a model, instructions, workspace and allowed tools. |
+| Session | A conversation identified by the instance and the runtime's native session/thread identifier. |
+| Run | One bounded response to an owner's request, possibly involving several model/tool turns. Stage 1 permits one active run per instance. |
+| Owner | The single human who configures the instance, supplies credentials and authorizes changes. |
+| Owner channel | Authenticated configuration/approval input unavailable to the model, even when displayed in the same terminal as chat. |
+| Tool | A typed, authorized domain operation exposed to the runtime, initially read-only through MCP. |
+| Adapter | Typed target communication with timeouts and safe errors; no policy or storage ownership. |
+| Target | The registered cluster, node, guest or storage being inspected or operated on. |
+| Discovery | Deterministic read-only collection of facts through approved tools; not model-generated exploration commands. |
+| Lab state | What the harness has observed, with source, observation time and explicit freshness. The live target remains authoritative. |
+| Lab document | A bounded, deterministic view of observed facts, with links to detail when needed. URI syntax and storage schema are not committed yet. |
+| Memory | Service-owned owner notes and observed facts, separate from runtime conversation history, audit and credential storage. |
+| Lab profile | Owner-approved conventions and annotations. It cannot grant authority or replace fresh facts. |
+| Plan | An immutable typed proposal for a target change, including resolved inputs, preflight evidence, preview, tier, steps, rollback note and content hash. |
+| Preview | Deterministic rendering of the exact proposed effect; model prose cannot replace it. |
+| Preflight | Live validation at plan time and again before apply. |
+| Policy / tier | Deterministic authorization, including non-lowerable risk floors. T0 reads; T1 reversible/in scope; T2 meaningful recoverable change; T3 destructive/lockout/public exposure. |
+| Approval | Owner decision bound to one plan hash, expiring and claimed at most once. Never inferred from model-classified chat. |
+| Job / apply | Durable execution of an approved stored plan. The engine is a later decision, not the conversation runtime. |
+| Outcome | Verified success, definite failure, cancellation/interruption, or uncertain effect requiring investigation. |
+| UPID | Proxmox task identifier; later write jobs persist it before polling rather than resubmitting a write. |
+| Secret / handle | Protected credential and its non-secret reference, such as `secret://pve-read`. Only the handle may reach the agent. |
+| Grant | Owner authorization for a principal to use a secret in a mode/scope until expiry. It does not reveal the value. |
+| Broker | Trusted tool-side execution which uses a credential without giving it to the agent. |
+| KEK / DEK | Encryption key held outside credential storage, and per-secret-version data key wrapped by it. |
+| Audit | Append-only record of identities, operations, policy and outcomes. No raw prompts, target bodies or secret values. |
+| Recipe / step | Later reusable typed operation and its shared execution units. Not a requirement to build a recipe framework for Stage 1. |
+| Widget / template | Later GUI configuration combining data and a generic renderer. This principle does not select a frontend framework. |
+| Role / job supervision | Later bounded authority/instructions and management of multiple agents or background work. Excluded from Stage 1. |
+| Acceptance gate | Recorded owner testing of an increment on the lab, distinct from automated fixture tests. |

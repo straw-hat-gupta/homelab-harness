@@ -1,36 +1,14 @@
-# Agent tooling (AGENTS.md, CLAUDE.md and .claude/settings.json are committed)
-.dual-graph/
-.claude/worktrees/
-.claude/settings.local.json
-CLAUDE.local.md
-
-# Python
-__pycache__/
-*.py[cod]
-*.so
-*.egg-info/
-dist/
-build/
-
-# Virtual environments
-.venv/
-
-# Environment and secrets (never committed; see docs/spec/secrets.md)
+# Private owner/tool state is never repository content.
 .env
 .env.*
-!.env.example
-*.age
 *.kek
-
-# Testing and tooling caches
-.pytest_cache/
-.coverage
-htmlcov/
-.ruff_cache/
-
-# Logs
+*.age
 *.log
-
-# OS
+CLAUDE.local.md
+.claude/
+.codex/
+.venv/
+__pycache__/
+node_modules/
 .DS_Store
 Thumbs.db
