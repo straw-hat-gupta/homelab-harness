@@ -1,19 +1,19 @@
 # Project status
 
-Reviewed 2026-11-20. **This branch contains documentation, legal notices and minimal Git metadata only.** No application source, installer, dependency lock, deployment, fixture suite, executable workflow or frontend is active. No Stage 1 acceptance box is complete.
+Reviewed 2026-11-20. **Stage 1A fixture prototype is implemented; real Claude/VM acceptance is pending.** No Stage 1 acceptance box is complete. No Proxmox access, Mac client, listening service, installer, vault, GUI or supervisor exists in the restarted implementation.
 
-The intended product is described in the [vision](spec/vision.md) and [Stage 1 contract](stage-1.md): a thin Mac client connects to a cluster-side service which runs one unmodified official agent runtime with read-only Proxmox tools. The runtime owns its loop/authentication/history; the harness owns lab context, tools and domain authorization.
+The [vision](spec/vision.md) and [Stage 1 contract](stage-1.md) remain: a thin Mac client will connect to a service guest running an official agent runtime. The vendor runtime owns its loop/authentication/history; the harness owns lab context, tools and deterministic authorization.
 
 ## Current evidence
 
-Documentation checks are recorded in [validation.md](validation.md). There is no current Python/UI test count, live-runtime support or cluster verification to report. Published vendor capabilities are design inputs, not evidence that our wrapper works.
+The launcher hosts the Claude Agent SDK in a bounded child process, with its unmodified bundled CLI. The harness uses a fail-closed all-tool hook and a fallback permission callback; 1A permits only one invented-data MCP tool. Native tools remain part of the runtime, under that policy, without bare/restricted mode. SQLite holds session registration and payload-free run/audit metadata. Tests cover fake worker processes, actual MCP stdio/SQLite, tool-policy decisions, limits, failures and child cancellation.
+
+Vendor docs, SDK source/configuration and binary version metadata were inspected. No paid inference, subscription login, live Claude tool use/history, Ubuntu installation or Proxmox read was verified. Fixture/policy tests do not prove effective native or OS isolation. Context usage is checked retrospectively, not capped before inference. Exact evidence is in [validation](validation.md).
 
 ## Historical implementation
 
-The full [snapshot](code-reuse.md#preserved-source) at `a97f2aa` contains the earlier MCP-first service, thin management CLI, encrypted vault, authentication/OAuth, audit, 18 read tools, DBOS foundation, observability and read-only React UI. Prior automated results belong to that implementation. Neither its breadth nor its tests decide what the restarted application must contain.
-
-Old language saying Stage 1 was built referred to that retired platform stage. The new 1A–1E milestones are unimplemented. No live infrastructure/data has been deleted by retiring tracked code; local environments/worktrees are not part of the branch's application inventory.
+The complete [snapshot](code-reuse.md#preserved-source), commit `a97f2aa`, preserves the earlier MCP-first service, CLI, encrypted vault, authentication/OAuth, audit, 18 read tools, DBOS foundation, observability and React UI. Its results do not describe this restart. No old source was restored.
 
 ## Next
 
-Merge the documentation-only reset through maintainer review, then scope 1A alone. Confirm the runtime/version, supported guest/control surface, isolation and numerical bounds; inspect relevant archived pieces only after defining that proof. Do not resume the old GUI/platform backlog. The [roadmap](roadmap.md) gates each subsequent increment on owner use.
+The owner is preparing the dedicated VM. Review this increment, follow [getting started](getting-started.md), and record actual subscription/tool/stream/resume/isolation/stop evidence. Resolve failures at 1A before 1B or a real target credential. The required later [hosting-node recovery](future.md#required-later-harness-host-availability) remains outside Stage 1.

@@ -1,25 +1,31 @@
-# Development at the documentation checkpoint
+# Development: Stage 1A fixture prototype
 
-No implementation toolchain is active here. There is no `uv sync`, Python/UI test suite, link-check script, container build, dependency automation or application CI to run. Those files were intentionally retired with the implementation; do not recreate them just to validate documentation.
+Python 3.13, the Claude Agent SDK and official MCP SDK are selected only for the current proof. No inference loop, HTTP app, database service, vault or GUI is required. SQLite from the standard library stores private proof metadata. The fresh uv lock includes the official SDK's pinned binary.
 
-## Documentation work
+```bash
+uv sync --frozen --python 3.13
+uv run ruff check homelab_harness tests
+uv run ruff format --check homelab_harness tests
+uv run pyright
+uv run pytest -q -W error
+uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file /tmp/hh-requirements.txt --quiet
+uv run pip-audit -r /tmp/hh-requirements.txt --disable-pip --no-deps
+git diff --check
+```
 
-Read [AGENTS.md](../AGENTS.md), [the active index](spec/README.md), [Stage 1](stage-1.md) and [ADR-0012](adr/0012-managed-agent-runtime-and-cli-first-stages.md). Update the owning contract rather than create overlapping plans. Label proposals, unimplemented behavior and future intentions. Do not write fake command examples as if installed today.
+| Location | Owns |
+|---|---|
+| `homelab_harness/proof.py` | Owner input/login delegation and safe terminal presentation |
+| `homelab_harness/runtime.py` | Outer process/session/deadline/output control and pure event validation |
+| `homelab_harness/sdk_worker.py` | One concrete SDK adapter and deny-by-default tool policy |
+| `homelab_harness/fixture.py` | Fixed stdio MCP schema and invented result |
+| `homelab_harness/state.py` | SQLite transactions, registration, audit/budgets and local exclusive lock |
+| `tests/` | Fake worker subprocess, actual MCP stdio/SQLite and deterministic policy/failure checks |
 
-Before review:
+The outer controller runs the SDK in a disposable child, so its deadline/output/process-group limits surround both the SDK and its native CLI. The SDK owns the native control protocol; our events are only terminal presentation/session evidence. Hook policy and MCP tool validation are separate gates. `can_use_tool` alone is insufficient because earlier permission steps can approve calls. The all-tool PreToolUse hook is configured to block on callback failure/timeout. The fixture server independently expires; SDK stdio can block in a reader thread, so expiry exits that dedicated process, which must own no unrelated work.
 
-- Verify the preservation branch and pinned source commit still resolve.
-- Inspect the full tracked-file inventory: only Markdown, LICENSE/NOTICE and minimal Git metadata should remain at this checkpoint.
-- Validate all relative Markdown paths and heading links, including retained historical documents. External URLs are checked where they substantiate current vendor claims; automated link counting is not a promise of external availability.
-- Check entry-point navigation, instruction precedence, consistent runtime ownership and explicit Stage 1 exclusions.
-- Compare S1–S10 with the preserved contract and review that no secrets protection was weakened.
-- Check diff whitespace and scan new/modified docs for accidental credentials/private lab details.
-- Record actual checks and omissions in [validation.md](validation.md).
+Default tests never call a model account or Proxmox. They prove our policy, real MCP framing and real persistence, not effective Claude or OS isolation. The [guest guide](getting-started.md) is the manual runtime acceptance gate. No historical test count is carried forward.
 
-Temporary validation tools may be used outside the repository. Do not commit an executable checker/workflow during a docs-only reset. `git diff --check` and `git ls-files` remain useful inspection commands; there is no application test run to claim.
+The archived HTTP CLI/MCP/audit paths were inspected after defining this boundary. Their authenticated HTTP/capability/Postgres layers are unnecessary for one local fixture; no source was copied. Follow [code reuse](code-reuse.md) before adopting future parts. Keep [Stage 1](stage-1.md) gated: do not start Proxmox integration before real 1A evidence.
 
-## When code returns
-
-Scope one accepted increment on its own branch. Pick only the runtime/library/store/build tools that increment needs, record why, add appropriate reproducible tests/checks and update commands/docs in the same change. [Code reuse](code-reuse.md) describes extracting proven pieces without reviving the old stack. Do not force framework shopping or a new security implementation merely to avoid old code.
-
-Automated tests exercise fake network boundaries and real selected persistence. Actual runtime/model and owner-lab checks are separate, bounded sessions. Test cancellation, isolation and secret handling before enabling lab access. Do not carry historical test counts or dependency versions as targets for the restart.
+Documentation checks still cover relative links/headings, tables, entry points, unchanged S1–S10/secrets, archive/legal preservation and whitespace. The code-free inventory was a historical reset check, not a prohibition on this explicitly authorized increment. Record actual results in [validation](validation.md).

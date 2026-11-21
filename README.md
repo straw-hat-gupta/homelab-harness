@@ -2,7 +2,9 @@
 
 **A Proxmox-focused workspace around existing agent runtimes.** A thin Mac CLI will connect to a service guest in your cluster. That service will launch the real, unmodified `claude` or `codex` program with homelab tools, relevant context and deterministic access rules.
 
-> **Current state: documentation only.** There is no application, installer, dependency lock, deployment or executable test suite on this branch. Stage 1 is planned, not implemented. The previous implementation is preserved separately and is not the blueprint for the restart.
+> **Current state: Stage 1A fixture prototype.** A guest-local launcher, one invented-data MCP tool and automated failure tests are available. Real Claude subscription/guest acceptance is pending. There is no Proxmox access, Mac client, installer, GUI or deployed service yet. The previous implementation remains preserved separately.
+
+Start with the [fixture proof guide](docs/getting-started.md). Development checks are in [development](docs/development.md); the selected scope and limits are in [ADR-0013](docs/adr/0013-claude-fixture-proof.md). Do not provide Proxmox credentials for this proof.
 
 ## Start here
 

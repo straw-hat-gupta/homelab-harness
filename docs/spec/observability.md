@@ -1,6 +1,6 @@
 # Observability and honest reporting
 
-> **Status: binding initial requirements; not implemented.** Full dashboards, distributed lab logs and subscription-usage ingestion are future decisions, not Stage 1 dependencies.
+> **Status: binding initial requirements; 1A has payload-free run/audit metadata and streamed terminal text only.** Full dashboards, distributed lab logs and subscription-usage ingestion are future decisions, not Stage 1 dependencies.
 
 Record bounded lifecycle events for selected instance, session/native runtime ID, run start, tool name/target, authorization, duration, outcome, limits/cancellation and completion. Correlate IDs across the runtime adapter and tool service. Basic visibility must let the owner distinguish runtime failure, bad request, target error, partial data and interrupted work.
 

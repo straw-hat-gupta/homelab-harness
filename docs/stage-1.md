@@ -1,6 +1,6 @@
 # Stage 1: one managed runtime and read-only cluster discovery
 
-> **Status: binding delivery contract; not implemented.** [Project status](project-status.md) is documentation only. Every command or screen below is illustrative until an implementation increment supplies it.
+> **Status: binding delivery contract; 1A fixture prototype available, owner acceptance pending.** See [project status](project-status.md) and the working [fixture guide](getting-started.md). Mac/discovery examples below remain requirements, not working commands.
 
 ## User experience
 
@@ -45,7 +45,7 @@ Authentication during setup may require the Mac browser to complete the runtime'
 
 ## Increment 1A: runtime and boundary proof
 
-Choose one runtime and one manually prepared guest. Claude Code is the proposed first backend; that recommendation is not a claim of tested support. Launch the actual CLI with supported instructions, one harmless fixture MCP tool and bounded execution. Stream progress/final output and resume the native session.
+The prototype selects the Claude Agent SDK and its bundled Claude Code on a manually prepared Ubuntu VM; actual guest/subscription support remains unverified. [ADR-0013](adr/0013-claude-fixture-proof.md) records configuration, bounds and the fail-closed hook policy. Native tools remain present, but only the fixture is authorized in 1A. Launch the actual CLI with supported instructions, one harmless fixture MCP tool and bounded execution. Stream progress/final output and resume the native session.
 
 Before 1B, record owner-run evidence on the guest for subscription login, instruction loading, actual tool use, honest stream/process failure, interruption, session continuation and enforced native-tool/credential isolation. Demonstrate that the agent cannot run unrestricted commands or read protected service credentials. No real Proxmox credential is needed for this increment.
 
@@ -98,9 +98,9 @@ All boxes require actual evidence; none is complete today.
 
 | Decision | Needed before |
 |---|---|
-| Confirm first runtime/version and supported programmatic control surface | 1A |
-| One supported guest/install method and enforceable runtime isolation | 1A |
-| Numerical run/time/call/context/output limits and cancellation semantics | 1A; refine with real tool evidence in 1D |
+| Verify selected SDK 0.2.187 / bundled Claude Code 2.1.330 control surface on the guest | 1A |
+| Verify Ubuntu 24.04 VM setup and effective native/OS isolation; broker separation remains unresolved | 1A, before target access |
+| Validate the selected numerical bounds; pre-inference context control is still unresolved | 1A; refine before real-model discovery |
 | Credential/audit storage and whether archived vault components justify their dependencies | Before supplying a real target credential in 1B |
 | Actual cluster/PVE compatibility and required least-privilege read permissions | 1B |
 | One authenticated encrypted client transport and pairing/revocation method | 1C |

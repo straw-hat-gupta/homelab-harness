@@ -1,0 +1,23 @@
+name: Stage 1A fixture checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: '0.7.10'
+      - run: uv sync --frozen --python 3.13
+      - run: uv run ruff check homelab_harness tests
+      - run: uv run ruff format --check homelab_harness tests
+      - run: uv run pyright
+      - run: uv run pytest -q -W error
+      - run: uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file /tmp/hh-requirements.txt --quiet
+      - run: uv run pip-audit -r /tmp/hh-requirements.txt --disable-pip --no-deps

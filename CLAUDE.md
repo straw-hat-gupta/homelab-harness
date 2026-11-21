@@ -4,4 +4,4 @@ All repository instructions are in [AGENTS.md](AGENTS.md).
 
 @AGENTS.md
 
-This is a documentation-only checkpoint. Using Claude Code to contribute to this repo is separate from the future product running an official agent runtime on the service guest. Do not restore application code, old setup commands or a frontend as part of documentation work.
+Only the Stage 1A fixture prototype is active. Using Claude Code to contribute to this repo is separate from testing the product's managed runtime. Default tests never invoke a paid model or the lab. Do not restore the old platform or advance to real Proxmox access before the owner-run gate.

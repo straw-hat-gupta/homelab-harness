@@ -29,3 +29,22 @@ All [Stage 1](stage-1.md) acceptance remains outstanding. When code returns, add
 ## Host-availability follow-up, 2026-11-20
 
 Documented the maintainer's required later hosting-node recovery goal in future intentions, roadmap and R-54, with an Unreleased changelog entry. Validation: 48 docs/legal/metadata files; all 142 relative links, 7 local heading anchors and 22 non-v0 tables pass; diff whitespace clean. Stage 1, safety and secrets files are unchanged. Proxmox's HA documentation was consulted for the migration-versus-recovery distinction. No HA, migration, storage, fencing, failure test or live infrastructure change was performed; the requirement is not implemented.
+
+
+## Stage 1A SDK fixture prototype, 2026-11-20
+
+The documentation reset/host-recovery records above describe earlier checkpoints. This authorized implementation branch adds only a guest-local runtime proof. SDK 0.2.187 includes official Claude Code 2.1.330; only version/help metadata and installed SDK control code were inspected, with no model request or credential-cache access.
+
+| Check | Result |
+|---|---|
+| Fresh locked environment | Python 3.13, uv sync --frozen passes. SDK/MCP plus scoped development dependencies only. |
+| Automated tests | 36 tests pass with warnings treated as errors: fake runtime workers, actual MCP stdio and actual SQLite. Native hook enforcement and history are not established by these tests. |
+| Lint/format/types | Ruff check/format pass; Pyright strict reports 0 errors. |
+| Dependencies | Exact exported runtime graph: pip-audit reports no known vulnerabilities. The tool warns about no-deps usage; export already includes the complete locked transitive graph/hashes. This does not scan the bundled native binary. |
+| Documentation | Relative-link/heading/table checks, whitespace, unchanged safety/secrets and archive/legal preservation checked for this increment; final counts recorded below. |
+| Reuse | Archived CLI, MCP boundary and audit validation inspected. No old source restored; HTTP/platform/DB/vault dependencies not adopted. |
+| Live evidence | Not run: native subscription login/inference, actual SDK tool/hooks/history/cancellation, Ubuntu guest install, Proxmox, network pairing or deployment. |
+
+The owner-run procedure is [getting started](getting-started.md). All Stage 1 acceptance boxes remain unchecked. Pre-inference context quotas, future broker OS isolation, native transcript retention/export and actual child-process behavior remain explicit gates. No lab credentials may be supplied. CI runs fixture checks only; its result is recorded in the PR after publication. Documentation-only inventory counts above do not describe this new implementation tree.
+
+Final local inventory/check: 64 tracked files; 172 repository-relative links, 7 local heading anchors and 24 non-v0 tables pass. Safety/secrets, all nine v0 documents and LICENSE/NOTICE match main. Diff whitespace, CLI help, locked sync, Ruff and strict Pyright pass. Local automated suite: 36 passed with warnings treated as errors. No live runtime or lab capability is claimed.

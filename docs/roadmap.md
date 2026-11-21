@@ -23,4 +23,4 @@ Automated tests use fake model/target boundaries and the real chosen local persi
 
 ## Current next action
 
-After the documentation reset is merged, scope 1A alone. Decide its runtime/guest/control/limit choices, inspect only relevant reusable components and build the smallest fixture-backed proof on a separate branch. Do not import the old UI, full API platform or dependency stack before a current requirement justifies it.
+The documentation reset is merged. A separate 1A fixture branch now selects the Claude Agent SDK with its bundled official runtime, deterministic hook policy and explicit limits. Run the [guest acceptance procedure](getting-started.md) and record evidence before advancing. Do not import the old UI, full API platform or dependency stack before a current requirement justifies it.

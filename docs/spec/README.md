@@ -1,6 +1,6 @@
 # Active specification
 
-This directory describes the agreed target; **none of the restarted application is implemented here**. [Project status](../project-status.md) describes the repository now.
+This directory describes the agreed target; **only the Stage 1A fixture prototype is implemented**. Real runtime/guest acceptance is pending. [Project status](../project-status.md) describes the repository now.
 
 Binding reading order:
 
@@ -15,7 +15,7 @@ Binding reading order:
 9. [Testing and evals](testing-and-evals.md), [reliability](reliability.md), [observability](observability.md) — evidence and honest outcomes.
 10. [Extending](extending.md) and [code reuse](../code-reuse.md) — smallest appropriate additions.
 
-[ADR-0012](../adr/0012-managed-agent-runtime-and-cli-first-stages.md) records the current decision. [Roadmap](../roadmap.md) orders delivery. [Glossary](../../GLOSSARY.md) defines terms. Proposals/open decisions are labelled and do not silently become implementation commitments.
+[ADR-0012](../adr/0012-managed-agent-runtime-and-cli-first-stages.md) records the direction; [ADR-0013](../adr/0013-claude-fixture-proof.md) selects the narrow SDK fixture implementation. [Roadmap](../roadmap.md) orders delivery. [Glossary](../../GLOSSARY.md) defines terms. Proposals/open decisions are labelled and do not silently become implementation commitments.
 
 [Future intentions](../future.md) are non-binding possibilities, not a parallel backlog. [Archives](../archive/README.md), the preserved implementation's docs and previous review branches are historical/non-binding. Their frontend, database, workflow-engine and external-client setup choices do not apply merely because they were once accepted.
 
